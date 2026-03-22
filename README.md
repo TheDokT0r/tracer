@@ -22,12 +22,6 @@ A TUI for browsing, inspecting, resuming, and deleting your [Claude Code](https:
 
 ## Install
 
-### Homebrew (macOS / Linux)
-
-```bash
-brew install TheDokT0r/tracer/tracer
-```
-
 ### Quick install (macOS / Linux)
 
 ```bash

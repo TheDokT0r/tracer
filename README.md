@@ -20,8 +20,10 @@ A TUI for browsing, inspecting, resuming, and deleting your [Claude Code](https:
 ### Quick install (macOS / Linux)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/TheDokT0r/tracer/master/install.sh | sudo sh
+curl -fsSL https://raw.githubusercontent.com/TheDokT0r/tracer/master/install.sh | sh
 ```
+
+Installs to `~/.local/bin`.
 
 ### Go install
 

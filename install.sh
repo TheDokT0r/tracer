@@ -8,11 +8,14 @@ URL="https://github.com/TheDokT0r/tracer/releases/latest/download/tracer-${OS}-$
 INSTALL_DIR="$HOME/.local/bin"
 mkdir -p "$INSTALL_DIR"
 
-curl -fsSL "$URL" | tar -xz -C "$INSTALL_DIR"
+TMP=$(mktemp -d)
+curl -fsSL "$URL" | tar -xz -C "$TMP"
+mv "$TMP/tracer" "$INSTALL_DIR/tracer"
+chmod +x "$INSTALL_DIR/tracer"
+rm -rf "$TMP"
 
 echo "tracer installed to ${INSTALL_DIR}/tracer"
 
-# Check if install dir is in PATH
 case ":$PATH:" in
   *":${INSTALL_DIR}:"*) ;;
   *) echo "Add ${INSTALL_DIR} to your PATH if it isn't already" ;;

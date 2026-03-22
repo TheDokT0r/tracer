@@ -8,6 +8,8 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 )
@@ -24,25 +26,6 @@ type asset struct {
 	BrowserDownloadURL string `json:"browser_download_url"`
 }
 
-// Check returns the latest version available, or empty string on error.
-func Check() (string, error) {
-	resp, err := http.Get(repoURL)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		return "", fmt.Errorf("github API returned %d", resp.StatusCode)
-	}
-
-	var r release
-	if err := json.NewDecoder(resp.Body).Decode(&r); err != nil {
-		return "", err
-	}
-	return r.TagName, nil
-}
-
 // NeedsUpdate returns true if latest is newer than current.
 func NeedsUpdate(current, latest string) bool {
 	current = strings.TrimPrefix(current, "v")
@@ -52,24 +35,33 @@ func NeedsUpdate(current, latest string) bool {
 
 // Update downloads the latest release and replaces the current binary.
 func Update(current string) error {
+	fmt.Println("Checking for updates...")
+
 	resp, err := http.Get(repoURL)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to check for updates: %w", err)
 	}
 	defer resp.Body.Close()
 
-	var r release
-	if err := json.NewDecoder(resp.Body).Decode(&r); err != nil {
-		return err
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("GitHub API returned status %d", resp.StatusCode)
 	}
 
+	var r release
+	if err := json.NewDecoder(resp.Body).Decode(&r); err != nil {
+		return fmt.Errorf("failed to parse release info: %w", err)
+	}
+
+	fmt.Printf("Current version: %s\n", current)
+	fmt.Printf("Latest version:  %s\n", r.TagName)
+
 	if !NeedsUpdate(current, r.TagName) {
-		fmt.Printf("Already up to date (%s)\n", current)
+		fmt.Println("Already up to date.")
 		return nil
 	}
 
 	// Find the right asset
-	target := fmt.Sprintf("tracer-%s-%s.tar.gz", runtime.GOOS, goArch())
+	target := fmt.Sprintf("tracer-%s-%s.tar.gz", runtime.GOOS, runtime.GOARCH)
 	var downloadURL string
 	for _, a := range r.Assets {
 		if a.Name == target {
@@ -78,43 +70,85 @@ func Update(current string) error {
 		}
 	}
 	if downloadURL == "" {
-		return fmt.Errorf("no release found for %s/%s", runtime.GOOS, goArch())
+		return fmt.Errorf("no release found for %s/%s", runtime.GOOS, runtime.GOARCH)
 	}
 
-	fmt.Printf("Updating %s -> %s\n", current, r.TagName)
+	fmt.Printf("Downloading %s...\n", target)
 
-	// Download
 	dlResp, err := http.Get(downloadURL)
 	if err != nil {
-		return err
+		return fmt.Errorf("download failed: %w", err)
 	}
 	defer dlResp.Body.Close()
 
 	// Extract binary from tar.gz
+	fmt.Println("Extracting...")
 	binary, err := extractBinary(dlResp.Body)
 	if err != nil {
-		return err
+		return fmt.Errorf("extraction failed: %w", err)
 	}
 
-	// Replace current binary
 	execPath, err := os.Executable()
 	if err != nil {
-		return err
+		return fmt.Errorf("could not determine binary path: %w", err)
+	}
+	execPath, err = filepath.EvalSymlinks(execPath)
+	if err != nil {
+		return fmt.Errorf("could not resolve binary path: %w", err)
 	}
 
-	// Write to temp file next to current binary, then rename (atomic on same fs)
+	fmt.Printf("Installing to %s...\n", execPath)
+
+	// Try writing directly first
 	tmpPath := execPath + ".tmp"
-	if err := os.WriteFile(tmpPath, binary, 0755); err != nil {
-		return err
-	}
-
-	if err := os.Rename(tmpPath, execPath); err != nil {
-		os.Remove(tmpPath)
-		return err
+	err = os.WriteFile(tmpPath, binary, 0755)
+	if err != nil {
+		// Permission denied — try with sudo
+		fmt.Println("Permission denied, retrying with sudo...")
+		err = sudoInstall(binary, execPath)
+		if err != nil {
+			return fmt.Errorf("install failed: %w", err)
+		}
+	} else {
+		if err := os.Rename(tmpPath, execPath); err != nil {
+			os.Remove(tmpPath)
+			// Rename failed — try with sudo
+			fmt.Println("Permission denied, retrying with sudo...")
+			err = sudoInstall(binary, execPath)
+			if err != nil {
+				return fmt.Errorf("install failed: %w", err)
+			}
+		}
 	}
 
 	fmt.Printf("Updated to %s\n", r.TagName)
 	return nil
+}
+
+func sudoInstall(binary []byte, destPath string) error {
+	// Write to temp file in a writable location
+	tmp, err := os.CreateTemp("", "tracer-update-*")
+	if err != nil {
+		return err
+	}
+	tmpPath := tmp.Name()
+	defer os.Remove(tmpPath)
+
+	if _, err := tmp.Write(binary); err != nil {
+		tmp.Close()
+		return err
+	}
+	tmp.Close()
+
+	if err := os.Chmod(tmpPath, 0755); err != nil {
+		return err
+	}
+
+	cmd := exec.Command("sudo", "mv", tmpPath, destPath)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
 }
 
 func extractBinary(r io.Reader) ([]byte, error) {
@@ -138,15 +172,4 @@ func extractBinary(r io.Reader) ([]byte, error) {
 		}
 	}
 	return nil, fmt.Errorf("tracer binary not found in archive")
-}
-
-func goArch() string {
-	switch runtime.GOARCH {
-	case "amd64":
-		return "amd64"
-	case "arm64":
-		return "arm64"
-	default:
-		return runtime.GOARCH
-	}
 }

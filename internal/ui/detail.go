@@ -52,7 +52,7 @@ func (d detailView) headerView() string {
 
 	pct := d.session.ContextPercent()
 	maxTok := d.session.MaxContextTokens()
-	inputK := fmt.Sprintf("%dk", d.session.InputTokens/1000)
+	inputK := fmt.Sprintf("%dk", d.session.ContextTokens/1000)
 	maxK := fmt.Sprintf("%dk", maxTok/1000)
 	pctLabel := fmt.Sprintf("%s / %s tokens (%d%%)", inputK, maxK, int(pct*100))
 	progressBar := d.progress.ViewAs(pct)
@@ -61,7 +61,7 @@ func (d detailView) headerView() string {
 	b.WriteString(titleStyle.Render(d.session.Name))
 	b.WriteString("\n\n")
 	b.WriteString(labelStyle.Render("Session ID") + valueStyle.Render(d.session.ID) + "\n")
-	b.WriteString(labelStyle.Render("Date") + valueStyle.Render(d.session.StartedAt.Format("Jan 02 2006 15:04")) + "\n")
+	b.WriteString(labelStyle.Render("Date") + valueStyle.Render(d.session.StartedAt.Format("2006-01-02 15:04")) + "\n")
 	b.WriteString(labelStyle.Render("Directory") + valueStyle.Render(dir) + "\n")
 	b.WriteString(labelStyle.Render("Branch") + valueStyle.Render(d.session.Branch) + "\n")
 	b.WriteString(labelStyle.Render("Messages") + valueStyle.Render(fmt.Sprintf(
@@ -71,8 +71,7 @@ func (d detailView) headerView() string {
 	b.WriteString(labelStyle.Render("Context") + progressBar + " " + valueStyle.Render(pctLabel) + "\n")
 	b.WriteString(labelStyle.Render("Output") + valueStyle.Render(outputK+" tokens") + "\n")
 	b.WriteString("\n")
-	b.WriteString(strings.Repeat("─", d.width))
-	b.WriteString("\n")
+	b.WriteString(strings.Repeat("─", d.width) + "\n")
 
 	return b.String()
 }
@@ -85,7 +84,6 @@ func (d detailView) conversationContent() string {
 		if len([]rune(content)) > 500 {
 			content = string([]rune(content)[:500]) + "..."
 		}
-		// Replace newlines in content for cleaner display
 		content = strings.ReplaceAll(content, "\r\n", "\n")
 
 		switch msg.Role {
@@ -112,7 +110,15 @@ func (d detailView) view() string {
 
 	header := d.headerView()
 	body := d.viewport.View()
-	help := helpStyle.Render("↑/↓ scroll • q/esc back")
+	sep := helpSepStyle.Render(" • ")
+	help := helpKeyStyle.Render("↑/↓") + helpDescStyle.Render(" scroll") + sep +
+		helpKeyStyle.Render("enter") + helpDescStyle.Render(" resume") + sep +
+		helpKeyStyle.Render("f") + helpDescStyle.Render(" fork") + sep +
+		helpKeyStyle.Render("r") + helpDescStyle.Render(" rename") + sep +
+		helpKeyStyle.Render("e") + helpDescStyle.Render(" edit") + sep +
+		helpKeyStyle.Render("c") + helpDescStyle.Render(" copy") + sep +
+		helpKeyStyle.Render("d") + helpDescStyle.Render(" delete") + sep +
+		helpKeyStyle.Render("esc") + helpDescStyle.Render(" back")
 
 	return header + body + "\n" + help
 }

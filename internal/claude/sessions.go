@@ -3,10 +3,12 @@ package claude
 import (
 	"bufio"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"tracer/internal/model"
 )
 
@@ -22,7 +24,12 @@ func ScanSessions(claudeDir string) ([]model.Session, error) {
 		return nil, err
 	}
 
-	var sessions []model.Session
+	// Collect all session file paths
+	type sessionPath struct {
+		path        string
+		projectPath string
+	}
+	var paths []sessionPath
 
 	for _, projEntry := range entries {
 		if !projEntry.IsDir() {
@@ -37,15 +44,38 @@ func ScanSessions(claudeDir string) ([]model.Session, error) {
 			if f.IsDir() || !strings.HasSuffix(f.Name(), ".jsonl") {
 				continue
 			}
-			path := filepath.Join(projDir, f.Name())
-			sess, err := parseSessionFile(path)
-			if err != nil {
-				continue
-			}
-			sess.ProjectPath = projEntry.Name()
-			sessions = append(sessions, sess)
+			paths = append(paths, sessionPath{
+				path:        filepath.Join(projDir, f.Name()),
+				projectPath: projEntry.Name(),
+			})
 		}
 	}
+
+	// Parse in parallel
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+	sessions := make([]model.Session, 0, len(paths))
+
+	sem := make(chan struct{}, 16) // limit concurrency
+	for _, sp := range paths {
+		wg.Add(1)
+		go func(sp sessionPath) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+
+			sess, err := scanSessionHead(sp.path)
+			if err != nil {
+				return
+			}
+			sess.ProjectPath = sp.projectPath
+
+			mu.Lock()
+			sessions = append(sessions, sess)
+			mu.Unlock()
+		}(sp)
+	}
+	wg.Wait()
 
 	// Apply renamed session names from history.jsonl
 	renames := loadRenames(claudeDir)
@@ -97,8 +127,9 @@ func loadRenames(claudeDir string) map[string]string {
 	return renames
 }
 
-// parseSessionFile reads a JSONL file and extracts session metadata.
-func parseSessionFile(path string) (model.Session, error) {
+// scanSessionHead reads only the first user message from a JSONL file.
+// This is fast — it stops reading as soon as it has the name, dir, branch, and date.
+func scanSessionHead(path string) (model.Session, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return model.Session{}, err
@@ -112,9 +143,6 @@ func parseSessionFile(path string) (model.Session, error) {
 	scanner := bufio.NewScanner(f)
 	scanner.Buffer(make([]byte, maxLineBuffer), maxLineBuffer)
 
-	firstUser := true
-	var lastAssistantEntry Entry
-
 	for scanner.Scan() {
 		line := scanner.Bytes()
 		if len(line) == 0 {
@@ -122,44 +150,91 @@ func parseSessionFile(path string) (model.Session, error) {
 		}
 
 		e, err := parseLine(line)
-		if err != nil || !e.IsMessage() {
+		if err != nil {
 			continue
 		}
 
-		switch e.Type {
-		case "user":
-			sess.UserMsgs++
-			sess.MessageCount++
-			if firstUser {
-				firstUser = false
-				content := e.MessageContent()
-				sess.Name = truncateName(content, 80)
-				sess.Directory = e.CWD
-				sess.Branch = e.GitBranch
-				sess.StartedAt = e.Timestamp
-			}
-		case "assistant":
-			sess.AssistantMsgs++
-			sess.MessageCount++
-			sess.OutputTokens += e.Message.Usage.OutputTokens
-			lastAssistantEntry = e
+		// Pick up cwd/branch/timestamp from first entry that has them
+		if sess.Directory == "" && e.CWD != "" {
+			sess.Directory = e.CWD
 		}
+		if sess.Branch == "" && e.GitBranch != "" {
+			sess.Branch = e.GitBranch
+		}
+		if sess.StartedAt.IsZero() && !e.Timestamp.IsZero() {
+			sess.StartedAt = e.Timestamp
+		}
+
+		if !e.IsRealUserMessage() {
+			continue
+		}
+
+		sess.Name = truncateName(e.MessageContent(), 80)
+		if sess.Branch == "" {
+			sess.Branch = "-"
+		}
+		return sess, nil
 	}
 
 	if err := scanner.Err(); err != nil {
 		return model.Session{}, err
 	}
 
-	// Take input/cache tokens and model from last assistant message.
-	if lastAssistantEntry.Type == "assistant" {
-		sess.InputTokens = lastAssistantEntry.Message.Usage.InputTokens
-		sess.CacheTokens = lastAssistantEntry.Message.Usage.CacheReadTokens
-		if lastAssistantEntry.Message.Model != "" {
-			sess.ModelID = lastAssistantEntry.Message.Model
-		}
+	// No real user message found — skip this session
+	if sess.Name == "" {
+		return model.Session{}, fmt.Errorf("no user message found")
+	}
+	if sess.Branch == "" {
+		sess.Branch = "-"
 	}
 
 	return sess, nil
+}
+
+// LoadSessionDetails reads the full JSONL file to populate token counts and message stats.
+// Called when opening the detail view.
+func LoadSessionDetails(claudeDir string, session *model.Session) {
+	path := filepath.Join(claudeDir, "projects", session.ProjectPath, session.ID+".jsonl")
+	f, err := os.Open(path)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+	scanner.Buffer(make([]byte, maxLineBuffer), maxLineBuffer)
+
+	var lastAssistantEntry Entry
+
+	for scanner.Scan() {
+		line := scanner.Bytes()
+		if len(line) == 0 {
+			continue
+		}
+		e, err := parseLine(line)
+		if err != nil || !e.IsMessage() {
+			continue
+		}
+		switch e.Type {
+		case "user":
+			session.UserMsgs++
+		case "assistant":
+			session.AssistantMsgs++
+			session.OutputTokens += e.Message.Usage.OutputTokens
+			lastAssistantEntry = e
+		}
+	}
+
+	session.MessageCount = session.UserMsgs + session.AssistantMsgs
+
+	if lastAssistantEntry.Type == "assistant" {
+		u := lastAssistantEntry.Message.Usage
+		session.ContextTokens = u.InputTokens + u.CacheCreate + u.CacheReadTokens
+		session.CacheTokens = u.CacheReadTokens
+		if lastAssistantEntry.Message.Model != "" {
+			session.ModelID = lastAssistantEntry.Message.Model
+		}
+	}
 }
 
 // LoadConversation reads a full JSONL file and returns all user/assistant

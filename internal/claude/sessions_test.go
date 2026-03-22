@@ -42,14 +42,20 @@ func TestScanSessions(t *testing.T) {
 	if s.Branch != "main" {
 		t.Errorf("Branch = %q, want %q", s.Branch, "main")
 	}
+	if s.ProjectPath != "-Users-or-projects-myapp" {
+		t.Errorf("ProjectPath = %q, want %q", s.ProjectPath, "-Users-or-projects-myapp")
+	}
+
+	// Load full details
+	LoadSessionDetails(tmpDir, &s)
 	if s.UserMsgs != 1 {
 		t.Errorf("UserMsgs = %d, want 1", s.UserMsgs)
 	}
 	if s.AssistantMsgs != 1 {
 		t.Errorf("AssistantMsgs = %d, want 1", s.AssistantMsgs)
 	}
-	if s.InputTokens != 5000 {
-		t.Errorf("InputTokens = %d, want 5000", s.InputTokens)
+	if s.ContextTokens != 8000 {
+		t.Errorf("ContextTokens = %d, want 8000", s.ContextTokens)
 	}
 	if s.CacheTokens != 3000 {
 		t.Errorf("CacheTokens = %d, want 3000", s.CacheTokens)
@@ -59,9 +65,6 @@ func TestScanSessions(t *testing.T) {
 	}
 	if s.ModelID != "claude-sonnet-4-6" {
 		t.Errorf("ModelID = %q, want %q", s.ModelID, "claude-sonnet-4-6")
-	}
-	if s.ProjectPath != "-Users-or-projects-myapp" {
-		t.Errorf("ProjectPath = %q, want %q", s.ProjectPath, "-Users-or-projects-myapp")
 	}
 }
 

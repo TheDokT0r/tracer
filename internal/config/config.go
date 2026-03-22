@@ -14,11 +14,27 @@ func init() {
 }
 
 type Config struct {
-	Theme string `json:"theme"`
+	Theme         string `json:"theme"`
+	SortBy        string `json:"sort_by"`         // "date", "name", "directory"
+	ShowDate      bool   `json:"show_date"`
+	ShowDirectory bool   `json:"show_directory"`
+	ShowBranch    bool   `json:"show_branch"`
+	ConfirmDelete bool   `json:"confirm_delete"`
+}
+
+func DefaultConfig() Config {
+	return Config{
+		Theme:         "default",
+		SortBy:        "date",
+		ShowDate:      true,
+		ShowDirectory: true,
+		ShowBranch:    true,
+		ConfirmDelete: true,
+	}
 }
 
 func LoadConfig() Config {
-	c := Config{Theme: "default"}
+	c := DefaultConfig()
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		return c
@@ -26,6 +42,9 @@ func LoadConfig() Config {
 	json.Unmarshal(data, &c)
 	if c.Theme == "" {
 		c.Theme = "default"
+	}
+	if c.SortBy == "" {
+		c.SortBy = "date"
 	}
 	return c
 }

@@ -9,6 +9,7 @@ import (
 	"charm.land/bubbles/v2/table"
 	"charm.land/bubbles/v2/textinput"
 	"charm.land/lipgloss/v2"
+	"tracer/internal/config"
 	"tracer/internal/model"
 )
 
@@ -19,11 +20,12 @@ type listView struct {
 	sessions  []model.Session
 	filtered  []model.Session
 	pins      map[string]bool
+	cfg       config.Config
 	width     int
 	height    int
 }
 
-func newListView(sessions []model.Session, pins map[string]bool, width, height int) listView {
+func newListView(sessions []model.Session, pins map[string]bool, cfg config.Config, width, height int) listView {
 	ti := textinput.New()
 	ti.Prompt = "Filter: "
 	ti.Placeholder = "type to filter..."
@@ -33,6 +35,7 @@ func newListView(sessions []model.Session, pins map[string]bool, width, height i
 		sessions: sessions,
 		filtered: sessions,
 		pins:     pins,
+		cfg:      cfg,
 		width:    width,
 		height:   height,
 	}
@@ -48,25 +51,73 @@ func (lv *listView) sortSessions() {
 		if pi != pj {
 			return pi
 		}
-		return lv.filtered[i].StartedAt.After(lv.filtered[j].StartedAt)
+		switch lv.cfg.SortBy {
+		case "name":
+			return lv.filtered[i].Name < lv.filtered[j].Name
+		case "directory":
+			return lv.filtered[i].Directory < lv.filtered[j].Directory
+		default: // "date"
+			return lv.filtered[i].StartedAt.After(lv.filtered[j].StartedAt)
+		}
 	})
 }
 
 func (lv *listView) rebuildTable() {
-	dateWidth := 18
-	remaining := lv.width - dateWidth
-	if remaining < 30 {
-		remaining = 30
+	// Count visible optional columns
+	extraCols := 0
+	if lv.cfg.ShowDate {
+		extraCols++
 	}
-	nameWidth := remaining * 35 / 100
-	dirWidth := remaining * 30 / 100
-	branchWidth := remaining - nameWidth - dirWidth
+	if lv.cfg.ShowDirectory {
+		extraCols++
+	}
+	if lv.cfg.ShowBranch {
+		extraCols++
+	}
 
-	cols := []table.Column{
-		{Title: "Name", Width: nameWidth},
-		{Title: "Date", Width: dateWidth},
-		{Title: "Directory", Width: dirWidth},
-		{Title: "Branch", Width: branchWidth},
+	dateWidth := 18
+	remaining := lv.width
+	if lv.cfg.ShowDate {
+		remaining -= dateWidth
+	}
+
+	// Distribute remaining space
+	var nameWidth, dirWidth, branchWidth int
+	if extraCols == 0 {
+		nameWidth = remaining
+	} else {
+		nameWidth = remaining * 40 / 100
+		optionalSpace := remaining - nameWidth
+		visibleOptional := 0
+		if lv.cfg.ShowDirectory {
+			visibleOptional++
+		}
+		if lv.cfg.ShowBranch {
+			visibleOptional++
+		}
+		if visibleOptional > 0 {
+			each := optionalSpace / visibleOptional
+			if lv.cfg.ShowDirectory {
+				dirWidth = each
+			}
+			if lv.cfg.ShowBranch {
+				branchWidth = optionalSpace - dirWidth
+			}
+		} else {
+			nameWidth = remaining
+		}
+	}
+
+	// Build columns
+	cols := []table.Column{{Title: "Name", Width: nameWidth}}
+	if lv.cfg.ShowDate {
+		cols = append(cols, table.Column{Title: "Date", Width: dateWidth})
+	}
+	if lv.cfg.ShowDirectory {
+		cols = append(cols, table.Column{Title: "Directory", Width: dirWidth})
+	}
+	if lv.cfg.ShowBranch {
+		cols = append(cols, table.Column{Title: "Branch", Width: branchWidth})
 	}
 
 	home := os.Getenv("HOME")
@@ -81,12 +132,17 @@ func (lv *listView) rebuildTable() {
 		if lv.pins[s.ID] {
 			name = "* " + name
 		}
-		rows = append(rows, table.Row{
-			truncate(name, nameWidth),
-			s.StartedAt.Format("2006-01-02 15:04"),
-			truncate(dir, dirWidth),
-			truncate(s.Branch, branchWidth),
-		})
+		row := table.Row{truncate(name, nameWidth)}
+		if lv.cfg.ShowDate {
+			row = append(row, s.StartedAt.Format("2006-01-02 15:04"))
+		}
+		if lv.cfg.ShowDirectory {
+			row = append(row, truncate(dir, dirWidth))
+		}
+		if lv.cfg.ShowBranch {
+			row = append(row, truncate(s.Branch, branchWidth))
+		}
+		rows = append(rows, row)
 	}
 
 	tableHeight := lv.height - 6
@@ -172,6 +228,7 @@ func (lv *listView) view() string {
 				helpKeyStyle.Render("p") + helpDescStyle.Render(" pin") + sep +
 				helpKeyStyle.Render("/") + helpDescStyle.Render(" filter") + sep +
 				helpKeyStyle.Render("d") + helpDescStyle.Render(" delete") + sep +
+				helpKeyStyle.Render("s") + helpDescStyle.Render(" settings") + sep +
 				helpKeyStyle.Render("q") + helpDescStyle.Render(" quit"),
 		)
 	}

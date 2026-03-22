@@ -6,13 +6,18 @@ tracer \- browse, inspect, resume, and delete Claude Code sessions
 .RB [ \-v | \-\-version ]
 .br
 .B tracer update
+.br
+.B tracer theme
+.RB [ name ]
+.br
+.B tracer man
 .SH DESCRIPTION
 .B tracer
 is an interactive TUI for managing Claude Code sessions stored in
 .IR ~/.claude/ .
 It displays all past sessions in a navigable table with name, date,
 working directory, and git branch. Sessions can be filtered, inspected,
-resumed, copied, or deleted.
+resumed, copied, pinned, or deleted.
 .PP
 Session names respect the
 .B /rename
@@ -25,10 +30,21 @@ Check for the latest release on GitHub and update the binary in place.
 Falls back to
 .B sudo
 if the install path is not writable.
+.TP
+.B theme \fR[\fIname\fR]
+Without arguments, opens an interactive theme picker with live preview.
+With a name argument, sets the theme directly.
+Available themes: default, minimal, ocean, rose.
+.TP
+.B man
+View this manual page.
 .SH OPTIONS
 .TP
 .BR \-v ", " \-\-version
 Print the version and exit.
+.TP
+.BR \-h ", " \-\-help
+Print a short help message and exit.
 .SH KEY BINDINGS
 .SS List View
 .TS
@@ -38,7 +54,9 @@ _
 Enter	Resume session
 v	View session details
 c	Copy session ID to clipboard
-d	Delete session (with confirmation)
+p	Pin/unpin session to top
+d	Delete session
+s	Open settings
 /	Filter sessions
 Esc	Clear filter
 \(ua/\(da	Navigate
@@ -51,10 +69,44 @@ Key	Action
 _
 Enter	Resume session
 c	Copy session ID to clipboard
-d	Delete session (with confirmation)
+d	Delete session
 \(ua/\(da	Scroll conversation
 Esc	Back to list
 .TE
+.SS Settings View
+.TS
+l l.
+Key	Action
+_
+\(ua/\(da	Navigate settings
+\(<-/\(->	Change value
+Enter	Change value
+Esc	Save and go back
+.TE
+.SH SETTINGS
+Accessible via the
+.B s
+key from the list view, or by editing
+.IR ~/.config/tracer/config.json .
+.TP
+.B Theme
+Color theme (default, minimal, ocean, rose).
+.TP
+.B Sort by
+Default sort order: date (newest first), name (alphabetical), or directory.
+.TP
+.B Show date
+Toggle the Date column in the list view.
+.TP
+.B Show directory
+Toggle the Directory column in the list view.
+.TP
+.B Show branch
+Toggle the Branch column in the list view.
+.TP
+.B Confirm delete
+When on, deleting a session requires a y/N confirmation.
+When off, sessions are deleted immediately.
 .SH DETAIL VIEW
 The detail view shows session metadata including:
 .IP \(bu 2
@@ -80,6 +132,12 @@ File version history per session. Deleted when a session is removed.
 .TP
 .I ~/.claude/tasks/{sessionId}/
 Task definitions per session. Deleted when a session is removed.
+.TP
+.I ~/.config/tracer/config.json
+Persistent settings (theme, sort order, column visibility, confirm delete).
+.TP
+.I ~/.config/tracer/pins.json
+Pinned session IDs.
 .SH ENVIRONMENT
 .TP
 .B HOME
@@ -110,6 +168,18 @@ Update to the latest release:
 .PP
 .RS
 .B tracer update
+.RE
+.PP
+Open interactive theme picker:
+.PP
+.RS
+.B tracer theme
+.RE
+.PP
+Set theme directly:
+.PP
+.RS
+.B tracer theme ocean
 .RE
 .SH AUTHORS
 Or Kwitzel

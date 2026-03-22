@@ -123,7 +123,7 @@ func main() {
 	}
 
 	pins := config.LoadPins()
-	app := ui.NewApp(claudeDir, sessions, pins)
+	app := ui.NewApp(claudeDir, sessions, pins, cfg)
 	p := tea.NewProgram(app)
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)

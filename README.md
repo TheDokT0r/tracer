@@ -12,7 +12,10 @@ A TUI for browsing, inspecting, resuming, and deleting your [Claude Code](https:
 - View session details — metadata, context usage, and conversation history
 - Resume any session directly from the TUI
 - Copy session IDs to clipboard
+- Pin sessions to the top of the list
 - Delete sessions permanently
+- In-app settings — theme, sort order, column visibility, confirm delete
+- 4 color themes — default, minimal, ocean, rose
 - Respects `/rename` — shows custom session names
 - Self-updating — `tracer update`
 - Built-in man page — `tracer man`
@@ -57,22 +60,40 @@ tracer
 |---------|-------------|
 | `tracer` | Launch the TUI |
 | `tracer update` | Update to the latest release |
+| `tracer theme` | Interactive theme picker with live preview |
+| `tracer theme <name>` | Set theme directly |
 | `tracer man` | View the manual page |
 | `tracer -v` | Print version |
 | `tracer -h` | Show help |
 
 ### Key Bindings
 
-| Key | List View | Detail View |
-|-----|-----------|-------------|
-| `Enter` | Resume session | Resume session |
-| `v` | View details | — |
-| `c` | Copy session ID | Copy session ID |
-| `d` | Delete session | Delete session |
-| `/` | Filter | — |
-| `Esc` | Clear filter | Back to list |
-| `↑/↓` | Navigate | Scroll |
-| `q` | Quit | Back to list |
+| Key | List View | Detail View | Settings |
+|-----|-----------|-------------|----------|
+| `Enter` | Resume session | Resume session | Change value |
+| `v` | View details | — | — |
+| `c` | Copy session ID | Copy session ID | — |
+| `p` | Pin/unpin | — | — |
+| `d` | Delete session | Delete session | — |
+| `s` | Open settings | — | — |
+| `/` | Filter | — | — |
+| `←/→` | — | — | Change value |
+| `↑/↓` | Navigate | Scroll | Navigate |
+| `Esc` | Clear filter | Back to list | Save & back |
+| `q` | Quit | Back to list | Save & back |
+
+### Settings
+
+Press `s` from the list view to open settings. All settings persist in `~/.config/tracer/config.json`.
+
+| Setting | Options | Default |
+|---------|---------|---------|
+| Theme | default, minimal, ocean, rose | default |
+| Sort by | date, name, directory | date |
+| Show date | on/off | on |
+| Show directory | on/off | on |
+| Show branch | on/off | on |
+| Confirm delete | on/off | on |
 
 ## How It Works
 

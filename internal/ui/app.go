@@ -17,22 +17,26 @@ type viewState int
 const (
 	viewList viewState = iota
 	viewDetail
+	viewSettings
 )
 
 type App struct {
 	claudeDir     string
+	cfg           config.Config
 	view          viewState
 	list          listView
 	detail        detailView
+	settings      settingsView
 	confirmDelete bool
 	width         int
 	height        int
 }
 
-func NewApp(claudeDir string, sessions []model.Session, pins map[string]bool) App {
+func NewApp(claudeDir string, sessions []model.Session, pins map[string]bool, cfg config.Config) App {
 	return App{
 		claudeDir: claudeDir,
-		list:      newListView(sessions, pins, 80, 24),
+		cfg:       cfg,
+		list:      newListView(sessions, pins, cfg, 80, 24),
 		view:      viewList,
 	}
 }
@@ -67,6 +71,8 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a.updateList(msg)
 	case viewDetail:
 		return a.updateDetail(msg)
+	case viewSettings:
+		return a.updateSettings(msg)
 	}
 	return a, nil
 }
@@ -105,6 +111,10 @@ func (a App) updateList(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a.openDetail()
 		case "c":
 			return a.copySessionID()
+		case "s":
+			a.settings = newSettingsView(a.cfg, a.width, a.height)
+			a.view = viewSettings
+			return a, nil
 		case "p":
 			if s := a.list.selectedSession(); s != nil {
 				config.TogglePin(a.list.pins, s.ID)
@@ -115,7 +125,12 @@ func (a App) updateList(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, nil
 		case "d":
 			if s := a.list.selectedSession(); s != nil {
-				a.confirmDelete = true
+				if a.cfg.ConfirmDelete {
+					a.confirmDelete = true
+				} else {
+					claude.DeleteSession(a.claudeDir, *s)
+					a.list.removeSession(s.ID)
+				}
 			}
 			return a, nil
 		}
@@ -138,7 +153,16 @@ func (a App) updateDetail(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "c":
 			return a.copySessionID()
 		case "d":
-			a.confirmDelete = true
+			if a.cfg.ConfirmDelete {
+				a.confirmDelete = true
+			} else {
+				s := a.list.selectedSession()
+				if s != nil {
+					claude.DeleteSession(a.claudeDir, *s)
+					a.list.removeSession(s.ID)
+					a.view = viewList
+				}
+			}
 			return a, nil
 		case "ctrl+c":
 			return a, tea.Quit
@@ -148,6 +172,42 @@ func (a App) updateDetail(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	a.detail.viewport, cmd = a.detail.viewport.Update(msg)
 	return a, cmd
+}
+
+func (a App) updateSettings(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyPressMsg:
+		switch msg.String() {
+		case "esc", "q":
+			// Save and go back
+			a.cfg = a.settings.cfg
+			config.SaveConfig(a.cfg)
+			a.list.cfg = a.cfg
+			a.list.sortSessions()
+			a.list.rebuildTable()
+			a.view = viewList
+			return a, nil
+		case "up", "k":
+			if a.settings.cursor > 0 {
+				a.settings.cursor--
+			}
+			return a, nil
+		case "down", "j":
+			if a.settings.cursor < int(settingCount)-1 {
+				a.settings.cursor++
+			}
+			return a, nil
+		case "right", "l", "enter":
+			a.settings.cycleRight()
+			return a, nil
+		case "left", "h":
+			a.settings.cycleLeft()
+			return a, nil
+		case "ctrl+c":
+			return a, tea.Quit
+		}
+	}
+	return a, nil
 }
 
 func (a App) updateDeleteConfirm(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -217,7 +277,6 @@ func (a App) copySessionID() (tea.Model, tea.Cmd) {
 	case "darwin":
 		clipCmd = exec.Command("pbcopy")
 	default:
-		// Try xclip, fall back to xsel
 		if _, err := exec.LookPath("xclip"); err == nil {
 			clipCmd = exec.Command("xclip", "-selection", "clipboard")
 		} else {
@@ -238,6 +297,8 @@ func (a App) View() tea.View {
 		content = a.list.view()
 	case viewDetail:
 		content = a.detail.view()
+	case viewSettings:
+		content = a.settings.view()
 	}
 
 	if a.confirmDelete {

@@ -12,6 +12,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"tracer/internal/claude"
 	"tracer/internal/config"
+	"tracer/internal/skills"
 	"tracer/internal/ui"
 	"tracer/internal/updater"
 )
@@ -174,7 +175,9 @@ func main() {
 		}
 	}
 
-	app := ui.NewApp(claudeDir, sessions, pins, cfg, renames)
+	allSkills, _ := skills.ScanSkills(claudeDir)
+
+	app := ui.NewApp(claudeDir, sessions, pins, cfg, renames, allSkills)
 	p := tea.NewProgram(app)
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)

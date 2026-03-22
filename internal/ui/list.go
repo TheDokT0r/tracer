@@ -205,9 +205,8 @@ func (lv *listView) removeSession(id string) {
 func (lv *listView) view() string {
 	var b strings.Builder
 
-	title := titleStyle.Render("tracer")
-	count := countStyle.Render(fmt.Sprintf(" %d sessions", len(lv.filtered)))
-	b.WriteString(title + count + "\n\n")
+	count := countStyle.Render(fmt.Sprintf("%d sessions", len(lv.filtered)))
+	b.WriteString(count + "\n\n")
 
 	b.WriteString(lv.table.View())
 	b.WriteString("\n")
@@ -226,6 +225,7 @@ func (lv *listView) view() string {
 				helpKeyStyle.Render("/") + helpDescStyle.Render(" filter") + sep +
 				helpKeyStyle.Render("d") + helpDescStyle.Render(" delete") + sep +
 				helpKeyStyle.Render("s") + helpDescStyle.Render(" settings") + sep +
+				helpKeyStyle.Render("tab") + helpDescStyle.Render(" skills") + sep +
 				helpKeyStyle.Render("q") + helpDescStyle.Render(" quit"),
 		)
 	}

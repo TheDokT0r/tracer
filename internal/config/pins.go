@@ -6,17 +6,12 @@ import (
 	"path/filepath"
 )
 
-var pinsPath string
-
-func init() {
-	home, _ := os.UserHomeDir()
-	pinsPath = filepath.Join(home, ".config", "tracer", "pins.json")
-}
+func pinsPath() string { return filepath.Join(configDir, "pins.json") }
 
 // LoadPins returns the set of pinned session IDs.
 func LoadPins() map[string]bool {
 	pins := make(map[string]bool)
-	data, err := os.ReadFile(pinsPath)
+	data, err := os.ReadFile(pinsPath())
 	if err != nil {
 		return pins
 	}
@@ -40,10 +35,10 @@ func SavePins(pins map[string]bool) error {
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Dir(pinsPath), 0755); err != nil {
+	if err := os.MkdirAll(configDir, 0755); err != nil {
 		return err
 	}
-	return os.WriteFile(pinsPath, data, 0644)
+	return os.WriteFile(pinsPath(), data, 0644)
 }
 
 // TogglePin adds or removes a session ID from pins. Returns new pinned state.

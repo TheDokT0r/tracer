@@ -54,8 +54,8 @@ func TestScanSessions(t *testing.T) {
 	if s.AssistantMsgs != 1 {
 		t.Errorf("AssistantMsgs = %d, want 1", s.AssistantMsgs)
 	}
-	if s.InputTokens != 8000 {
-		t.Errorf("InputTokens = %d, want 8000", s.InputTokens)
+	if s.ContextTokens != 8000 {
+		t.Errorf("ContextTokens = %d, want 8000", s.ContextTokens)
 	}
 	if s.CacheTokens != 3000 {
 		t.Errorf("CacheTokens = %d, want 3000", s.CacheTokens)

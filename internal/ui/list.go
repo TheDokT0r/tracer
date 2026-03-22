@@ -45,45 +45,41 @@ func newListView(sessions []model.Session, pins map[string]bool, cfg config.Conf
 }
 
 func (lv *listView) sortSessions() {
-	sort.SliceStable(lv.filtered, func(i, j int) bool {
-		pi := lv.pins[lv.filtered[i].ID]
-		pj := lv.pins[lv.filtered[j].ID]
-		if pi != pj {
-			return pi
+	sorter := func(s []model.Session) func(i, j int) bool {
+		return func(i, j int) bool {
+			pi := lv.pins[s[i].ID]
+			pj := lv.pins[s[j].ID]
+			if pi != pj {
+				return pi
+			}
+			switch lv.cfg.SortBy {
+			case "name":
+				return s[i].Name < s[j].Name
+			case "directory":
+				return s[i].Directory < s[j].Directory
+			default:
+				return s[i].StartedAt.After(s[j].StartedAt)
+			}
 		}
-		switch lv.cfg.SortBy {
-		case "name":
-			return lv.filtered[i].Name < lv.filtered[j].Name
-		case "directory":
-			return lv.filtered[i].Directory < lv.filtered[j].Directory
-		default: // "date"
-			return lv.filtered[i].StartedAt.After(lv.filtered[j].StartedAt)
-		}
-	})
+	}
+	sort.SliceStable(lv.sessions, sorter(lv.sessions))
+	if &lv.filtered != &lv.sessions {
+		sort.SliceStable(lv.filtered, sorter(lv.filtered))
+	}
 }
 
 func (lv *listView) rebuildTable() {
-	// Count visible optional columns
-	extraCols := 0
-	if lv.cfg.ShowDate {
-		extraCols++
-	}
-	if lv.cfg.ShowDirectory {
-		extraCols++
-	}
-	if lv.cfg.ShowBranch {
-		extraCols++
-	}
-
 	dateWidth := 18
 	remaining := lv.width
 	if lv.cfg.ShowDate {
 		remaining -= dateWidth
 	}
 
+	hasOptional := lv.cfg.ShowDirectory || lv.cfg.ShowBranch
+
 	// Distribute remaining space
 	var nameWidth, dirWidth, branchWidth int
-	if extraCols == 0 {
+	if !hasOptional {
 		nameWidth = remaining
 	} else {
 		nameWidth = remaining * 40 / 100
@@ -158,8 +154,8 @@ func (lv *listView) rebuildTable() {
 		Bold(true).
 		Foreground(t.Primary)
 	s.Selected = s.Selected.
-		Foreground(lipgloss.Color("229")).
-		Background(t.Primary).
+		Foreground(t.SelectFg).
+		Background(t.SelectBg).
 		Bold(true)
 
 	lv.table = table.New(
@@ -252,11 +248,12 @@ func truncate(s string, maxWidth int) string {
 	if maxWidth <= 0 {
 		return ""
 	}
-	if len(s) <= maxWidth {
+	runes := []rune(s)
+	if len(runes) <= maxWidth {
 		return s
 	}
 	if maxWidth <= 3 {
-		return s[:maxWidth]
+		return string(runes[:maxWidth])
 	}
-	return s[:maxWidth-3] + "..."
+	return string(runes[:maxWidth-3]) + "..."
 }

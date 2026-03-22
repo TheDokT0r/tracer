@@ -52,7 +52,7 @@ func (d detailView) headerView() string {
 
 	pct := d.session.ContextPercent()
 	maxTok := d.session.MaxContextTokens()
-	inputK := fmt.Sprintf("%dk", d.session.InputTokens/1000)
+	inputK := fmt.Sprintf("%dk", d.session.ContextTokens/1000)
 	maxK := fmt.Sprintf("%dk", maxTok/1000)
 	pctLabel := fmt.Sprintf("%s / %s tokens (%d%%)", inputK, maxK, int(pct*100))
 	progressBar := d.progress.ViewAs(pct)

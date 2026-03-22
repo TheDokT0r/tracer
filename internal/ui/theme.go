@@ -18,6 +18,7 @@ type Theme struct {
 	Red      color.Color
 	Green    color.Color
 	SelectBg color.Color
+	SelectFg color.Color
 }
 
 var Themes = map[string]Theme{
@@ -32,6 +33,7 @@ var Themes = map[string]Theme{
 		Red:      lipgloss.Color("#FF4444"),
 		Green:    lipgloss.Color("#44FF44"),
 		SelectBg: lipgloss.Color("#7D56F4"),
+		SelectFg: lipgloss.Color("#FFFFFF"),
 	},
 	"minimal": {
 		Name:     "minimal",
@@ -44,6 +46,7 @@ var Themes = map[string]Theme{
 		Red:      lipgloss.Color("#F87171"),
 		Green:    lipgloss.Color("#86EFAC"),
 		SelectBg: lipgloss.Color("#333355"),
+		SelectFg: lipgloss.Color("#FFFFFF"),
 	},
 	"ocean": {
 		Name:     "ocean",
@@ -56,6 +59,7 @@ var Themes = map[string]Theme{
 		Red:      lipgloss.Color("#FB7185"),
 		Green:    lipgloss.Color("#34D399"),
 		SelectBg: lipgloss.Color("#1E3A5F"),
+		SelectFg: lipgloss.Color("#FFFFFF"),
 	},
 	"rose": {
 		Name:     "rose",
@@ -68,6 +72,7 @@ var Themes = map[string]Theme{
 		Red:      lipgloss.Color("#F87171"),
 		Green:    lipgloss.Color("#86EFAC"),
 		SelectBg: lipgloss.Color("#5E2040"),
+		SelectFg: lipgloss.Color("#FFFFFF"),
 	},
 	"forest": {
 		Name:     "forest",
@@ -80,6 +85,7 @@ var Themes = map[string]Theme{
 		Red:      lipgloss.Color("#F87171"),
 		Green:    lipgloss.Color("#86EFAC"),
 		SelectBg: lipgloss.Color("#14532D"),
+		SelectFg: lipgloss.Color("#FFFFFF"),
 	},
 	"sunset": {
 		Name:     "sunset",
@@ -92,6 +98,7 @@ var Themes = map[string]Theme{
 		Red:      lipgloss.Color("#EF4444"),
 		Green:    lipgloss.Color("#84CC16"),
 		SelectBg: lipgloss.Color("#78350F"),
+		SelectFg: lipgloss.Color("#FFFFFF"),
 	},
 	"nord": {
 		Name:     "nord",
@@ -104,6 +111,7 @@ var Themes = map[string]Theme{
 		Red:      lipgloss.Color("#BF616A"),
 		Green:    lipgloss.Color("#A3BE8C"),
 		SelectBg: lipgloss.Color("#434C5E"),
+		SelectFg: lipgloss.Color("#ECEFF4"),
 	},
 	"dracula": {
 		Name:     "dracula",
@@ -116,6 +124,7 @@ var Themes = map[string]Theme{
 		Red:      lipgloss.Color("#FF5555"),
 		Green:    lipgloss.Color("#50FA7B"),
 		SelectBg: lipgloss.Color("#44475A"),
+		SelectFg: lipgloss.Color("#F8F8F2"),
 	},
 	"solarized": {
 		Name:     "solarized",
@@ -128,6 +137,7 @@ var Themes = map[string]Theme{
 		Red:      lipgloss.Color("#DC322F"),
 		Green:    lipgloss.Color("#859900"),
 		SelectBg: lipgloss.Color("#073642"),
+		SelectFg: lipgloss.Color("#FDF6E3"),
 	},
 	"monokai": {
 		Name:     "monokai",
@@ -140,6 +150,7 @@ var Themes = map[string]Theme{
 		Red:      lipgloss.Color("#F92672"),
 		Green:    lipgloss.Color("#A6E22E"),
 		SelectBg: lipgloss.Color("#49483E"),
+		SelectFg: lipgloss.Color("#F8F8F2"),
 	},
 	"catppuccin": {
 		Name:     "catppuccin",
@@ -152,6 +163,7 @@ var Themes = map[string]Theme{
 		Red:      lipgloss.Color("#F38BA8"),
 		Green:    lipgloss.Color("#A6E3A1"),
 		SelectBg: lipgloss.Color("#45475A"),
+		SelectFg: lipgloss.Color("#CDD6F4"),
 	},
 }
 
@@ -209,12 +221,6 @@ func ApplyTheme(t Theme) {
 
 	filterStyle = lipgloss.NewStyle().
 		Foreground(t.Primary)
-
-	pinStyle = lipgloss.NewStyle().
-		Foreground(t.Primary)
-
-	dividerStyle = lipgloss.NewStyle().
-		Foreground(t.Dim)
 
 	// Store for table styles
 	currentTheme = t

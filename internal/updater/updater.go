@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 )
 
@@ -43,11 +44,35 @@ func Check() (string, error) {
 	return r.TagName, nil
 }
 
-// NeedsUpdate returns true if latest is newer than current.
+// NeedsUpdate returns true if latest is strictly newer than current.
 func NeedsUpdate(current, latest string) bool {
 	current = strings.TrimPrefix(current, "v")
 	latest = strings.TrimPrefix(latest, "v")
-	return current != latest && current != "dev"
+	if current == "dev" || current == latest {
+		return false
+	}
+	return compareSemver(latest, current) > 0
+}
+
+// compareSemver returns >0 if a > b, 0 if equal, <0 if a < b.
+func compareSemver(a, b string) int {
+	ap := parseSemver(a)
+	bp := parseSemver(b)
+	for i := 0; i < 3; i++ {
+		if ap[i] != bp[i] {
+			return ap[i] - bp[i]
+		}
+	}
+	return 0
+}
+
+func parseSemver(v string) [3]int {
+	var parts [3]int
+	for i, s := range strings.SplitN(v, ".", 3) {
+		n, _ := strconv.Atoi(s)
+		parts[i] = n
+	}
+	return parts
 }
 
 // Update downloads the latest release and replaces the current binary.
@@ -185,7 +210,8 @@ func extractBinary(r io.Reader) ([]byte, error) {
 			return nil, err
 		}
 		if hdr.Name == "tracer" {
-			return io.ReadAll(tr)
+			const maxBinarySize = 200 * 1024 * 1024 // 200 MB
+			return io.ReadAll(io.LimitReader(tr, maxBinarySize))
 		}
 	}
 	return nil, fmt.Errorf("tracer binary not found in archive")

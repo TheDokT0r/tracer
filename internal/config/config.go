@@ -6,11 +6,17 @@ import (
 	"path/filepath"
 )
 
-var configPath string
+var configDir string
 
 func init() {
-	home, _ := os.UserHomeDir()
-	configPath = filepath.Join(home, ".config", "tracer", "config.json")
+	home := os.Getenv("HOME")
+	if home == "" {
+		home, _ = os.UserHomeDir()
+	}
+	if home == "" {
+		home = "/tmp"
+	}
+	configDir = filepath.Join(home, ".config", "tracer")
 }
 
 type Config struct {
@@ -34,9 +40,11 @@ func DefaultConfig() Config {
 	}
 }
 
+func configPath() string { return filepath.Join(configDir, "config.json") }
+
 func LoadConfig() Config {
 	c := DefaultConfig()
-	data, err := os.ReadFile(configPath)
+	data, err := os.ReadFile(configPath())
 	if err != nil {
 		return c
 	}
@@ -55,8 +63,8 @@ func SaveConfig(c Config) error {
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Dir(configPath), 0755); err != nil {
+	if err := os.MkdirAll(configDir, 0755); err != nil {
 		return err
 	}
-	return os.WriteFile(configPath, data, 0644)
+	return os.WriteFile(configPath(), data, 0644)
 }

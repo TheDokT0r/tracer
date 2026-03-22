@@ -53,6 +53,15 @@ func (a App) Init() tea.Cmd {
 }
 
 func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg.(type) {
+	case editorFinishedMsg:
+		// Reload detail view after editor closes
+		if a.view == viewDetail {
+			return a.openDetail()
+		}
+		return a, nil
+	}
+
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		a.width = msg.Width
@@ -218,6 +227,13 @@ func (a App) updateRename(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if name != "" {
 					a.renames[s.ID] = name
 					config.SaveRenames(a.renames)
+					// Update in both slices
+					for i := range a.list.sessions {
+						if a.list.sessions[i].ID == s.ID {
+							a.list.sessions[i].Name = name
+							break
+						}
+					}
 					s.Name = name
 					a.detail.session.Name = name
 					a.list.rebuildTable()
@@ -231,6 +247,8 @@ func (a App) updateRename(msg tea.Msg) (tea.Model, tea.Cmd) {
 	a.renameInput, cmd = a.renameInput.Update(msg)
 	return a, cmd
 }
+
+type editorFinishedMsg struct{}
 
 func (a App) editSessionFile() (tea.Model, tea.Cmd) {
 	s := a.list.selectedSession()
@@ -246,7 +264,7 @@ func (a App) editSessionFile() (tea.Model, tea.Cmd) {
 	path := filepath.Join(a.claudeDir, "projects", s.ProjectPath, s.ID+".jsonl")
 	c := exec.Command(editor, path)
 	return a, tea.ExecProcess(c, func(err error) tea.Msg {
-		return nil
+		return editorFinishedMsg{}
 	})
 }
 

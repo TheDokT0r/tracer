@@ -178,8 +178,10 @@ func (sa SettingsApp) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return sa, nil
 	case tea.KeyPressMsg:
 		switch msg.String() {
-		case "esc", "q", "ctrl+c":
+		case "esc", "q":
 			sa.saved = true
+			return sa, tea.Quit
+		case "ctrl+c":
 			return sa, tea.Quit
 		case "up", "k":
 			if sa.sv.cursor > 0 {

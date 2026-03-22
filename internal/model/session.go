@@ -27,7 +27,7 @@ type Session struct {
 	MessageCount  int       // Total messages
 	UserMsgs      int
 	AssistantMsgs int
-	InputTokens   int
+	ContextTokens int // Total: input + cache_create + cache_read
 	CacheTokens   int
 	OutputTokens  int
 	ModelID       string // For determining context window
@@ -57,7 +57,7 @@ func (s Session) ContextPercent() float64 {
 	if max == 0 {
 		return 0
 	}
-	pct := float64(s.InputTokens) / float64(max)
+	pct := float64(s.ContextTokens) / float64(max)
 	if pct > 1.0 {
 		return 1.0
 	}

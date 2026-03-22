@@ -229,7 +229,7 @@ func LoadSessionDetails(claudeDir string, session *model.Session) {
 
 	if lastAssistantEntry.Type == "assistant" {
 		u := lastAssistantEntry.Message.Usage
-		session.InputTokens = u.InputTokens + u.CacheCreate + u.CacheReadTokens
+		session.ContextTokens = u.InputTokens + u.CacheCreate + u.CacheReadTokens
 		session.CacheTokens = u.CacheReadTokens
 		if lastAssistantEntry.Message.Model != "" {
 			session.ModelID = lastAssistantEntry.Message.Model

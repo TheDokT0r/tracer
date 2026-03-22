@@ -135,9 +135,12 @@ func main() {
 			if err := updater.Update(version); err != nil {
 				fmt.Fprintf(os.Stderr, "Auto-update failed: %v\n", err)
 			} else {
-				fmt.Println("Restarting...")
-				exe, _ := os.Executable()
-				syscall.Exec(exe, os.Args, os.Environ())
+				exe, err := os.Executable()
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "Updated successfully. Please restart tracer manually.\n")
+				} else if err := syscall.Exec(exe, os.Args, os.Environ()); err != nil {
+					fmt.Fprintf(os.Stderr, "Updated successfully. Please restart tracer manually.\n")
+				}
 			}
 		}
 	}

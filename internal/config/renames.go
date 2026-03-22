@@ -6,17 +6,12 @@ import (
 	"path/filepath"
 )
 
-var renamesPath string
-
-func init() {
-	home, _ := os.UserHomeDir()
-	renamesPath = filepath.Join(home, ".config", "tracer", "renames.json")
-}
+func renamesPath() string { return filepath.Join(configDir, "renames.json") }
 
 // LoadRenames returns a map of sessionID -> custom name.
 func LoadRenames() map[string]string {
 	renames := make(map[string]string)
-	data, err := os.ReadFile(renamesPath)
+	data, err := os.ReadFile(renamesPath())
 	if err != nil {
 		return renames
 	}
@@ -30,8 +25,8 @@ func SaveRenames(renames map[string]string) error {
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Dir(renamesPath), 0755); err != nil {
+	if err := os.MkdirAll(configDir, 0755); err != nil {
 		return err
 	}
-	return os.WriteFile(renamesPath, data, 0644)
+	return os.WriteFile(renamesPath(), data, 0644)
 }

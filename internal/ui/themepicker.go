@@ -69,8 +69,8 @@ func (tp *ThemePicker) rebuildTable(t Theme) {
 		Bold(true).
 		Foreground(t.Primary)
 	s.Selected = s.Selected.
-		Foreground(lipgloss.Color("229")).
-		Background(t.Primary).
+		Foreground(t.SelectFg).
+		Background(t.SelectBg).
 		Bold(true)
 
 	tp.table = table.New(

@@ -48,9 +48,6 @@ var (
 	filterStyle = lipgloss.NewStyle().
 			Foreground(purple)
 
-	pinStyle = lipgloss.NewStyle().
-			Foreground(purple)
-
 	helpKeyStyle = lipgloss.NewStyle().
 			Bold(true).
 			Foreground(purple)
@@ -61,6 +58,4 @@ var (
 	helpSepStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#444444"))
 
-	dividerStyle = lipgloss.NewStyle().
-			Foreground(gray)
 )

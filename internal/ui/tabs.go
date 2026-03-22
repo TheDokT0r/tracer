@@ -7,9 +7,10 @@ type Tab int
 const (
 	TabSessions Tab = iota
 	TabSkills
+	TabPermissions
 )
 
-var tabNames = []string{"Sessions", "Skills"}
+var tabNames = []string{"Sessions", "Skills", "Permissions"}
 
 type tabBar struct {
 	active Tab

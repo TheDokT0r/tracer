@@ -10,6 +10,7 @@ import (
 	"syscall"
 
 	tea "charm.land/bubbletea/v2"
+	"tracer/internal/ccsettings"
 	"tracer/internal/claude"
 	"tracer/internal/config"
 	"tracer/internal/skills"
@@ -177,8 +178,9 @@ func main() {
 	}
 
 	allSkills, _ := skills.ScanSkills(claudeDir)
+	settingsFiles := ccsettings.ScanSettings(claudeDir)
 
-	app := ui.NewApp(claudeDir, sessions, pins, cfg, renames, allSkills)
+	app := ui.NewApp(claudeDir, sessions, pins, cfg, renames, allSkills, settingsFiles)
 	p := tea.NewProgram(app)
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)

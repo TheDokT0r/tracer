@@ -10,6 +10,7 @@ import (
 
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
+	"tracer/internal/ccsettings"
 	"tracer/internal/claude"
 	"tracer/internal/config"
 	"tracer/internal/model"
@@ -24,6 +25,8 @@ const (
 	viewSettings
 	viewSkillsList
 	viewSkillDetail
+	viewPermsList
+	viewPermsDetail
 )
 
 type App struct {
@@ -36,6 +39,9 @@ type App struct {
 	settings      settingsView
 	skillsList    skillsListView
 	skillDetail   skillDetailView
+	permsList     permsListView
+	permsDetail   permsDetailView
+	addRule       addRuleState
 	renames       map[string]string
 	renaming      bool
 	renameInput   textinput.Model
@@ -48,7 +54,7 @@ type App struct {
 	height        int
 }
 
-func NewApp(claudeDir string, sessions []model.Session, pins map[string]bool, cfg config.Config, renames map[string]string, skills []skillspkg.Skill) App {
+func NewApp(claudeDir string, sessions []model.Session, pins map[string]bool, cfg config.Config, renames map[string]string, skills []skillspkg.Skill, settingsFiles []ccsettings.SettingsFile) App {
 	return App{
 		claudeDir:  claudeDir,
 		cfg:        cfg,
@@ -56,6 +62,7 @@ func NewApp(claudeDir string, sessions []model.Session, pins map[string]bool, cf
 		tab:        tabBar{active: TabSessions},
 		list:       newListView(sessions, pins, cfg, 80, 24),
 		skillsList: newSkillsListView(skills, 80, 24),
+		permsList:  newPermsListView(settingsFiles, 80, 24),
 		view:       viewList,
 	}
 }
@@ -90,6 +97,9 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.skillsList.width = msg.Width
 		a.skillsList.height = msg.Height
 		a.skillsList.rebuildTable()
+		a.permsList.width = msg.Width
+		a.permsList.height = msg.Height
+		a.permsList.rebuildTable()
 		if a.view == viewDetail {
 			a.detail.width = msg.Width
 			a.detail.height = msg.Height
@@ -120,6 +130,10 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a.updateSkillsList(msg)
 	case viewSkillDetail:
 		return a.updateSkillDetail(msg)
+	case viewPermsList:
+		return a.updatePermsList(msg)
+	case viewPermsDetail:
+		return a.updatePermsDetail(msg)
 	}
 	return a, nil
 }
@@ -155,8 +169,7 @@ func (a App) updateList(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "q", "ctrl+c":
 			return a, tea.Quit
 		case "tab":
-			a.tab.active = TabSkills
-			a.view = viewSkillsList
+			return a.nextTab()
 			return a, nil
 		case "/":
 			a.list.filtering = true
@@ -278,13 +291,9 @@ func (a App) updateSkillsList(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "q", "ctrl+c":
 			return a, tea.Quit
 		case "tab":
-			a.tab.active = TabSessions
-			a.view = viewList
-			return a, nil
+			return a.nextTab()
 		case "shift+tab":
-			a.tab.active = TabSessions
-			a.view = viewList
-			return a, nil
+			return a.prevTab()
 		case "/":
 			a.skillsList.filtering = true
 			a.skillsList.filter.Focus()
@@ -686,6 +695,121 @@ func (a *App) rescanSkills() {
 	a.skillsList.applyFilter()
 }
 
+// --- Tab cycling ---
+
+var tabViewMap = map[Tab]viewState{
+	TabSessions:    viewList,
+	TabSkills:      viewSkillsList,
+	TabPermissions: viewPermsList,
+}
+
+func (a App) nextTab() (tea.Model, tea.Cmd) {
+	next := Tab((int(a.tab.active) + 1) % len(tabNames))
+	a.tab.active = next
+	a.view = tabViewMap[next]
+	return a, nil
+}
+
+func (a App) prevTab() (tea.Model, tea.Cmd) {
+	prev := int(a.tab.active) - 1
+	if prev < 0 {
+		prev = len(tabNames) - 1
+	}
+	a.tab.active = Tab(prev)
+	a.view = tabViewMap[Tab(prev)]
+	return a, nil
+}
+
+// --- Permissions ---
+
+func (a App) updatePermsList(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyPressMsg:
+		if a.permsList.filtering {
+			switch msg.String() {
+			case "esc":
+				a.permsList.filtering = false
+				a.permsList.filter.SetValue("")
+				a.permsList.applyFilter()
+				return a, nil
+			case "enter":
+				a.permsList.filtering = false
+				return a, nil
+			default:
+				var cmd tea.Cmd
+				a.permsList.filter, cmd = a.permsList.filter.Update(msg)
+				a.permsList.applyFilter()
+				return a, cmd
+			}
+		}
+
+		switch msg.String() {
+		case "q", "ctrl+c":
+			return a, tea.Quit
+		case "tab":
+			return a.nextTab()
+		case "shift+tab":
+			return a.prevTab()
+		case "/":
+			a.permsList.filtering = true
+			a.permsList.filter.Focus()
+			return a, nil
+		case "enter", "v":
+			f := a.permsList.selectedFile()
+			if f != nil {
+				a.permsDetail = newPermsDetailView(f, a.width, a.height)
+				a.view = viewPermsDetail
+			}
+			return a, nil
+		}
+	}
+
+	var cmd tea.Cmd
+	a.permsList.table, cmd = a.permsList.table.Update(msg)
+	return a, cmd
+}
+
+func (a App) updatePermsDetail(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyPressMsg:
+		if a.addRule.active {
+			done, result := a.addRule.update(msg)
+			if done && result != nil {
+				list := "allow"
+				if result.fileIdx == 1 {
+					list = "deny"
+				}
+				a.permsDetail.addRule(list, result.rule)
+				// Refresh the file list counts
+				a.permsList.rebuildTable()
+			}
+			return a, nil
+		}
+
+		switch msg.String() {
+		case "esc", "q":
+			a.permsList.rebuildTable()
+			a.view = viewPermsList
+			return a, nil
+		case "a":
+			a.addRule = newAddRuleState([]ccsettings.SettingsFile{*a.permsDetail.file})
+			return a, nil
+		case "t":
+			a.permsDetail.toggleSelected()
+			return a, nil
+		case "d":
+			a.permsDetail.deleteSelected()
+			return a, nil
+		case "ctrl+c":
+			return a, tea.Quit
+		}
+	}
+
+	var cmd tea.Cmd
+	a.permsDetail.table, cmd = a.permsDetail.table.Update(msg)
+	return a, cmd
+}
+
 // --- View ---
 
 func (a App) View() tea.View {
@@ -693,7 +817,7 @@ func (a App) View() tea.View {
 
 	// Tab bar for list views
 	switch a.view {
-	case viewList, viewSkillsList:
+	case viewList, viewSkillsList, viewPermsList:
 		content = a.tab.view(a.width)
 	}
 
@@ -708,6 +832,14 @@ func (a App) View() tea.View {
 		content += a.skillsList.view()
 	case viewSkillDetail:
 		content = a.skillDetail.view()
+	case viewPermsList:
+		content += a.permsList.view()
+	case viewPermsDetail:
+		if a.addRule.active {
+			content = a.addRule.view()
+		} else {
+			content = a.permsDetail.view()
+		}
 	}
 
 	if a.newSession {

@@ -20,6 +20,7 @@ type Config struct {
 	ShowDirectory bool   `json:"show_directory"`
 	ShowBranch    bool   `json:"show_branch"`
 	ConfirmDelete bool   `json:"confirm_delete"`
+	AutoUpdate    bool   `json:"auto_update"`
 }
 
 func DefaultConfig() Config {

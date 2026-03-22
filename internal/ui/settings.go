@@ -16,6 +16,7 @@ const (
 	settingShowDirectory
 	settingShowBranch
 	settingConfirmDelete
+	settingAutoUpdate
 	settingCount
 )
 
@@ -62,6 +63,8 @@ func (sv *settingsView) cycleRight() {
 		sv.cfg.ShowBranch = !sv.cfg.ShowBranch
 	case settingConfirmDelete:
 		sv.cfg.ConfirmDelete = !sv.cfg.ConfirmDelete
+	case settingAutoUpdate:
+		sv.cfg.AutoUpdate = !sv.cfg.AutoUpdate
 	}
 }
 
@@ -92,7 +95,7 @@ func (sv *settingsView) cycleLeft() {
 				break
 			}
 		}
-	case settingShowDate, settingShowDirectory, settingShowBranch, settingConfirmDelete:
+	case settingShowDate, settingShowDirectory, settingShowBranch, settingConfirmDelete, settingAutoUpdate:
 		sv.cycleRight() // toggle is the same both ways
 	}
 }
@@ -113,6 +116,7 @@ func (sv settingsView) view() string {
 		{"Show directory", boolDisplay(sv.cfg.ShowDirectory)},
 		{"Show branch", boolDisplay(sv.cfg.ShowBranch)},
 		{"Confirm delete", boolDisplay(sv.cfg.ConfirmDelete)},
+		{"Auto update", boolDisplay(sv.cfg.AutoUpdate)},
 	}
 
 	for i, item := range items {

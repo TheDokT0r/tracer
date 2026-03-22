@@ -26,6 +26,23 @@ type asset struct {
 	BrowserDownloadURL string `json:"browser_download_url"`
 }
 
+// Check returns the latest version tag from GitHub.
+func Check() (string, error) {
+	resp, err := http.Get(repoURL)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return "", fmt.Errorf("GitHub API returned %d", resp.StatusCode)
+	}
+	var r release
+	if err := json.NewDecoder(resp.Body).Decode(&r); err != nil {
+		return "", err
+	}
+	return r.TagName, nil
+}
+
 // NeedsUpdate returns true if latest is newer than current.
 func NeedsUpdate(current, latest string) bool {
 	current = strings.TrimPrefix(current, "v")

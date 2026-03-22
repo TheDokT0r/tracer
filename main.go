@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
 
 	tea "charm.land/bubbletea/v2"
 	"tracer/internal/claude"
@@ -106,6 +107,21 @@ func main() {
 	cfg := config.LoadConfig()
 	if t, ok := ui.Themes[cfg.Theme]; ok {
 		ui.ApplyTheme(t)
+	}
+
+	// Auto-update check
+	if cfg.AutoUpdate && version != "dev" {
+		latest, err := updater.Check()
+		if err == nil && updater.NeedsUpdate(version, latest) {
+			fmt.Printf("Updating tracer %s -> %s...\n", version, latest)
+			if err := updater.Update(version); err != nil {
+				fmt.Fprintf(os.Stderr, "Auto-update failed: %v\n", err)
+			} else {
+				fmt.Println("Restarting...")
+				exe, _ := os.Executable()
+				syscall.Exec(exe, os.Args, os.Environ())
+			}
+		}
 	}
 
 	home, err := os.UserHomeDir()

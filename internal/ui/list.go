@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 
 	"charm.land/bubbles/v2/table"
@@ -12,16 +13,17 @@ import (
 )
 
 type listView struct {
-	table    table.Model
-	filter   textinput.Model
+	table     table.Model
+	filter    textinput.Model
 	filtering bool
-	sessions []model.Session
-	filtered []model.Session
-	width    int
-	height   int
+	sessions  []model.Session
+	filtered  []model.Session
+	pins      map[string]bool
+	width     int
+	height    int
 }
 
-func newListView(sessions []model.Session, width, height int) listView {
+func newListView(sessions []model.Session, pins map[string]bool, width, height int) listView {
 	ti := textinput.New()
 	ti.Prompt = "Filter: "
 	ti.Placeholder = "type to filter..."
@@ -30,11 +32,24 @@ func newListView(sessions []model.Session, width, height int) listView {
 		filter:   ti,
 		sessions: sessions,
 		filtered: sessions,
+		pins:     pins,
 		width:    width,
 		height:   height,
 	}
+	lv.sortSessions()
 	lv.rebuildTable()
 	return lv
+}
+
+func (lv *listView) sortSessions() {
+	sort.SliceStable(lv.filtered, func(i, j int) bool {
+		pi := lv.pins[lv.filtered[i].ID]
+		pj := lv.pins[lv.filtered[j].ID]
+		if pi != pj {
+			return pi
+		}
+		return lv.filtered[i].StartedAt.After(lv.filtered[j].StartedAt)
+	})
 }
 
 func (lv *listView) rebuildTable() {
@@ -63,8 +78,12 @@ func (lv *listView) rebuildTable() {
 		if home != "" && strings.HasPrefix(dir, home) {
 			dir = "~" + dir[len(home):]
 		}
+		name := s.Name
+		if lv.pins[s.ID] {
+			name = "* " + name
+		}
 		rows = append(rows, table.Row{
-			truncate(s.Name, nameWidth),
+			truncate(name, nameWidth),
 			s.StartedAt.Format("2006-01-02 15:04"),
 			truncate(dir, dirWidth),
 			truncate(s.Branch, branchWidth),
@@ -110,6 +129,7 @@ func (lv *listView) applyFilter() {
 			}
 		}
 	}
+	lv.sortSessions()
 	lv.rebuildTable()
 }
 
@@ -149,6 +169,7 @@ func (lv *listView) view() string {
 				helpKeyStyle.Render("enter") + helpDescStyle.Render(" resume") + sep +
 				helpKeyStyle.Render("v") + helpDescStyle.Render(" view") + sep +
 				helpKeyStyle.Render("c") + helpDescStyle.Render(" copy") + sep +
+				helpKeyStyle.Render("p") + helpDescStyle.Render(" pin") + sep +
 				helpKeyStyle.Render("/") + helpDescStyle.Render(" filter") + sep +
 				helpKeyStyle.Render("d") + helpDescStyle.Render(" delete") + sep +
 				helpKeyStyle.Render("q") + helpDescStyle.Render(" quit"),

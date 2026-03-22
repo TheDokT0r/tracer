@@ -9,6 +9,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"tracer/internal/claude"
+	"tracer/internal/config"
 	"tracer/internal/ui"
 	"tracer/internal/updater"
 )
@@ -82,7 +83,8 @@ func main() {
 		os.Exit(0)
 	}
 
-	app := ui.NewApp(claudeDir, sessions)
+	pins := config.LoadPins()
+	app := ui.NewApp(claudeDir, sessions, pins)
 	p := tea.NewProgram(app)
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)

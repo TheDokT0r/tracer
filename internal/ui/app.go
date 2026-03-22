@@ -8,6 +8,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"tracer/internal/claude"
+	"tracer/internal/config"
 	"tracer/internal/model"
 )
 
@@ -28,10 +29,10 @@ type App struct {
 	height        int
 }
 
-func NewApp(claudeDir string, sessions []model.Session) App {
+func NewApp(claudeDir string, sessions []model.Session, pins map[string]bool) App {
 	return App{
 		claudeDir: claudeDir,
-		list:      newListView(sessions, 80, 24),
+		list:      newListView(sessions, pins, 80, 24),
 		view:      viewList,
 	}
 }
@@ -104,6 +105,14 @@ func (a App) updateList(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a.openDetail()
 		case "c":
 			return a.copySessionID()
+		case "p":
+			if s := a.list.selectedSession(); s != nil {
+				config.TogglePin(a.list.pins, s.ID)
+				config.SavePins(a.list.pins)
+				a.list.sortSessions()
+				a.list.rebuildTable()
+			}
+			return a, nil
 		case "d":
 			if s := a.list.selectedSession(); s != nil {
 				a.confirmDelete = true

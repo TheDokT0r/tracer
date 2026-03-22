@@ -38,11 +38,17 @@ var (
 			Bold(true).
 			Foreground(purple)
 
+	dimmedStyle = lipgloss.NewStyle().
+			Foreground(gray)
+
 	deletePromptStyle = lipgloss.NewStyle().
 				Bold(true).
 				Foreground(red)
 
 	filterStyle = lipgloss.NewStyle().
+			Foreground(purple)
+
+	pinStyle = lipgloss.NewStyle().
 			Foreground(purple)
 
 	helpKeyStyle = lipgloss.NewStyle().
@@ -54,4 +60,7 @@ var (
 
 	helpSepStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#444444"))
+
+	dividerStyle = lipgloss.NewStyle().
+			Foreground(gray)
 )

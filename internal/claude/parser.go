@@ -2,6 +2,7 @@ package claude
 
 import (
 	"encoding/json"
+	"strings"
 	"time"
 )
 
@@ -14,6 +15,7 @@ type Entry struct {
 	GitBranch string    `json:"gitBranch"`
 	SessionID string    `json:"sessionId"`
 	Version   string    `json:"version"`
+	IsMeta    bool      `json:"isMeta"`
 }
 
 type RawMsg struct {
@@ -37,6 +39,27 @@ type ContentBlock struct {
 
 func (e Entry) IsMessage() bool {
 	return e.Type == "user" || e.Type == "assistant"
+}
+
+// IsRealUserMessage returns true if this is a genuine user message,
+// not a system/meta/command message.
+func (e Entry) IsRealUserMessage() bool {
+	if e.Type != "user" || e.IsMeta {
+		return false
+	}
+	content := e.MessageContent()
+	if content == "" {
+		return false
+	}
+	// Skip XML-tagged system messages
+	if strings.HasPrefix(content, "<") {
+		return false
+	}
+	// Skip slash commands
+	if strings.HasPrefix(content, "/") {
+		return false
+	}
+	return true
 }
 
 func (e Entry) MessageContent() string {

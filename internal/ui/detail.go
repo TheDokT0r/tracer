@@ -61,7 +61,7 @@ func (d detailView) headerView() string {
 	b.WriteString(titleStyle.Render(d.session.Name))
 	b.WriteString("\n\n")
 	b.WriteString(labelStyle.Render("Session ID") + valueStyle.Render(d.session.ID) + "\n")
-	b.WriteString(labelStyle.Render("Date") + valueStyle.Render(d.session.StartedAt.Format("Jan 02 2006 15:04")) + "\n")
+	b.WriteString(labelStyle.Render("Date") + valueStyle.Render(d.session.StartedAt.Format("2006-01-02 15:04")) + "\n")
 	b.WriteString(labelStyle.Render("Directory") + valueStyle.Render(dir) + "\n")
 	b.WriteString(labelStyle.Render("Branch") + valueStyle.Render(d.session.Branch) + "\n")
 	b.WriteString(labelStyle.Render("Messages") + valueStyle.Render(fmt.Sprintf(
@@ -71,8 +71,7 @@ func (d detailView) headerView() string {
 	b.WriteString(labelStyle.Render("Context") + progressBar + " " + valueStyle.Render(pctLabel) + "\n")
 	b.WriteString(labelStyle.Render("Output") + valueStyle.Render(outputK+" tokens") + "\n")
 	b.WriteString("\n")
-	b.WriteString(strings.Repeat("─", d.width))
-	b.WriteString("\n")
+	b.WriteString(strings.Repeat("─", d.width) + "\n")
 
 	return b.String()
 }
@@ -85,7 +84,6 @@ func (d detailView) conversationContent() string {
 		if len([]rune(content)) > 500 {
 			content = string([]rune(content)[:500]) + "..."
 		}
-		// Replace newlines in content for cleaner display
 		content = strings.ReplaceAll(content, "\r\n", "\n")
 
 		switch msg.Role {

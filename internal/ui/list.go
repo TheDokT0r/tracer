@@ -54,12 +54,11 @@ func (lv *listView) sortSessions() {
 
 func (lv *listView) rebuildTable() {
 	dateWidth := 18
-	padding := 8
-	remaining := lv.width - dateWidth - padding
+	remaining := lv.width - dateWidth
 	if remaining < 30 {
 		remaining = 30
 	}
-	nameWidth := remaining * 40 / 100
+	nameWidth := remaining * 35 / 100
 	dirWidth := remaining * 30 / 100
 	branchWidth := remaining - nameWidth - dirWidth
 
@@ -95,15 +94,16 @@ func (lv *listView) rebuildTable() {
 		tableHeight = 1
 	}
 
+	t := CurrentTheme()
 	s := table.DefaultStyles()
 	s.Header = s.Header.
-		Bold(true).
-		Foreground(purple).
+		BorderStyle(lipgloss.NormalBorder()).
 		BorderBottom(true).
-		BorderStyle(lipgloss.NormalBorder())
+		Bold(true).
+		Foreground(t.Primary)
 	s.Selected = s.Selected.
-		Foreground(white).
-		Background(purple).
+		Foreground(lipgloss.Color("229")).
+		Background(t.Primary).
 		Bold(true)
 
 	lv.table = table.New(

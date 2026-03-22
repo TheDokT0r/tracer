@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	tea "charm.land/bubbletea/v2"
 	"tracer/internal/claude"
@@ -32,6 +33,7 @@ func main() {
 			fmt.Println()
 			fmt.Println("Commands:")
 			fmt.Println("  update      Update tracer to the latest version")
+			fmt.Println("  theme       View or set the color theme")
 			fmt.Println("  man         View the manual page")
 			fmt.Println()
 			fmt.Println("Options:")
@@ -44,6 +46,37 @@ func main() {
 			if err := updater.Update(version); err != nil {
 				fmt.Fprintf(os.Stderr, "Update failed: %v\n", err)
 				os.Exit(1)
+			}
+			os.Exit(0)
+		case "theme":
+			cfg := config.LoadConfig()
+			if len(os.Args) > 2 {
+				name := os.Args[2]
+				if _, ok := ui.Themes[name]; !ok {
+					fmt.Fprintf(os.Stderr, "Unknown theme: %s\n", name)
+					fmt.Fprintf(os.Stderr, "Available: %s\n", strings.Join(ui.ThemeNames(), ", "))
+					os.Exit(1)
+				}
+				cfg.Theme = name
+				config.SaveConfig(cfg)
+				fmt.Printf("Theme set to %s\n", name)
+			} else {
+				// Apply current theme before launching picker
+				if t, ok := ui.Themes[cfg.Theme]; ok {
+					ui.ApplyTheme(t)
+				}
+				picker := ui.NewThemePicker(cfg.Theme)
+				p := tea.NewProgram(picker)
+				result, err := p.Run()
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+					os.Exit(1)
+				}
+				if chosen := result.(ui.ThemePicker).Chosen(); chosen != "" {
+					cfg.Theme = chosen
+					config.SaveConfig(cfg)
+					fmt.Printf("Theme set to %s\n", chosen)
+				}
 			}
 			os.Exit(0)
 		case "man":
@@ -62,6 +95,12 @@ func main() {
 			cmd.Run()
 			os.Exit(0)
 		}
+	}
+
+	// Apply theme
+	cfg := config.LoadConfig()
+	if t, ok := ui.Themes[cfg.Theme]; ok {
+		ui.ApplyTheme(t)
 	}
 
 	home, err := os.UserHomeDir()

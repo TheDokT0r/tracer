@@ -150,23 +150,29 @@ func scanSessionHead(path string) (model.Session, error) {
 		}
 
 		e, err := parseLine(line)
-		if err != nil || e.Type != "user" {
+		if err != nil {
 			continue
 		}
 
-		content := e.MessageContent()
-		if content == "" {
-			continue
+		// Pick up cwd/branch/timestamp from first entry that has them
+		if sess.Directory == "" && e.CWD != "" {
+			sess.Directory = e.CWD
 		}
-
-		sess.Name = truncateName(content, 80)
-		sess.Directory = e.CWD
-		if e.GitBranch != "" {
+		if sess.Branch == "" && e.GitBranch != "" {
 			sess.Branch = e.GitBranch
-		} else {
+		}
+		if sess.StartedAt.IsZero() && !e.Timestamp.IsZero() {
+			sess.StartedAt = e.Timestamp
+		}
+
+		if !e.IsRealUserMessage() {
+			continue
+		}
+
+		sess.Name = truncateName(e.MessageContent(), 80)
+		if sess.Branch == "" {
 			sess.Branch = "-"
 		}
-		sess.StartedAt = e.Timestamp
 		return sess, nil
 	}
 
@@ -174,9 +180,12 @@ func scanSessionHead(path string) (model.Session, error) {
 		return model.Session{}, err
 	}
 
-	// No user message found — skip this session
+	// No real user message found — skip this session
 	if sess.Name == "" {
 		return model.Session{}, fmt.Errorf("no user message found")
+	}
+	if sess.Branch == "" {
+		sess.Branch = "-"
 	}
 
 	return sess, nil

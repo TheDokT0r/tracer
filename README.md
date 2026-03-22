@@ -14,6 +14,8 @@ A TUI for browsing, inspecting, resuming, and deleting your [Claude Code](https:
 - Copy session IDs to clipboard
 - Delete sessions permanently
 - Respects `/rename` — shows custom session names
+- Self-updating — `tracer update`
+- Built-in man page — `tracer man`
 
 ## Install
 
@@ -23,7 +25,7 @@ A TUI for browsing, inspecting, resuming, and deleting your [Claude Code](https:
 curl -fsSL https://raw.githubusercontent.com/TheDokT0r/tracer/master/install.sh | sh
 ```
 
-Installs to `~/.local/bin`.
+Installs binary to `~/.local/bin` and man page to `~/.local/share/man/man1`.
 
 ### Go install
 
@@ -49,6 +51,16 @@ Grab the latest `.tar.gz` for your platform from [Releases](https://github.com/T
 tracer
 ```
 
+### Commands
+
+| Command | Description |
+|---------|-------------|
+| `tracer` | Launch the TUI |
+| `tracer update` | Update to the latest release |
+| `tracer man` | View the manual page |
+| `tracer -v` | Print version |
+| `tracer -h` | Show help |
+
 ### Key Bindings
 
 | Key | List View | Detail View |
@@ -69,7 +81,7 @@ tracer reads session data from `~/.claude/`:
 - **Session files** (`projects/{path}/{sessionId}.jsonl`) — full conversation history
 - **History** (`history.jsonl`) — detects `/rename` commands for custom session names
 
-The detail view shows a context usage progress bar (tokens used vs. model context window) and a scrollable conversation preview.
+Startup is fast — sessions are scanned in parallel, reading only the first message per file. Full details (token counts, conversation) are loaded on demand when opening the detail view.
 
 ## License
 

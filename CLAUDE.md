@@ -10,3 +10,6 @@ See [AGENTS.md](./AGENTS.md) for full architecture, data sources, and convention
 - Data layer: `internal/claude/` — reads `~/.claude/`
 - Types: `internal/model/` — `Session`, `Message`
 - UI: `internal/ui/` — Bubbletea app with list and detail views
+- Updater: `internal/updater/` — self-update via GitHub releases
+- Man page: `tracer.1` — embedded via `go:embed`
+- Release: automatic on push to master via conventional commits

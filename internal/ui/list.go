@@ -39,14 +39,14 @@ func newListView(sessions []model.Session, width, height int) listView {
 
 func (lv *listView) rebuildTable() {
 	dateWidth := 18
-	branchWidth := 16
 	padding := 8
-	remaining := lv.width - dateWidth - branchWidth - padding
-	if remaining < 20 {
-		remaining = 20
+	remaining := lv.width - dateWidth - padding
+	if remaining < 30 {
+		remaining = 30
 	}
-	nameWidth := remaining / 2
-	dirWidth := remaining - nameWidth
+	nameWidth := remaining * 40 / 100
+	dirWidth := remaining * 30 / 100
+	branchWidth := remaining - nameWidth - dirWidth
 
 	cols := []table.Column{
 		{Title: "Name", Width: nameWidth},
@@ -143,7 +143,16 @@ func (lv *listView) view() string {
 	if lv.filtering {
 		b.WriteString(filterStyle.Render(lv.filter.View()))
 	} else {
-		b.WriteString(helpStyle.Render("↑/↓ navigate • enter open • / filter • d delete • q quit"))
+		sep := helpSepStyle.Render(" • ")
+		b.WriteString(
+			helpKeyStyle.Render("↑/↓") + helpDescStyle.Render(" navigate") + sep +
+				helpKeyStyle.Render("enter") + helpDescStyle.Render(" resume") + sep +
+				helpKeyStyle.Render("v") + helpDescStyle.Render(" view") + sep +
+				helpKeyStyle.Render("c") + helpDescStyle.Render(" copy") + sep +
+				helpKeyStyle.Render("/") + helpDescStyle.Render(" filter") + sep +
+				helpKeyStyle.Render("d") + helpDescStyle.Render(" delete") + sep +
+				helpKeyStyle.Render("q") + helpDescStyle.Render(" quit"),
+		)
 	}
 
 	return b.String()

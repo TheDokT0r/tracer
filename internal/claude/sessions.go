@@ -135,7 +135,11 @@ func parseSessionFile(path string) (model.Session, error) {
 				content := e.MessageContent()
 				sess.Name = truncateName(content, 80)
 				sess.Directory = e.CWD
+				if e.GitBranch != "" {
 				sess.Branch = e.GitBranch
+			} else {
+				sess.Branch = "-"
+			}
 				sess.StartedAt = e.Timestamp
 			}
 		case "assistant":
@@ -151,9 +155,11 @@ func parseSessionFile(path string) (model.Session, error) {
 	}
 
 	// Take input/cache tokens and model from last assistant message.
+	// Total context = input_tokens + cache_creation_input_tokens + cache_read_input_tokens
 	if lastAssistantEntry.Type == "assistant" {
-		sess.InputTokens = lastAssistantEntry.Message.Usage.InputTokens
-		sess.CacheTokens = lastAssistantEntry.Message.Usage.CacheReadTokens
+		u := lastAssistantEntry.Message.Usage
+		sess.InputTokens = u.InputTokens + u.CacheCreate + u.CacheReadTokens
+		sess.CacheTokens = u.CacheReadTokens
 		if lastAssistantEntry.Message.Model != "" {
 			sess.ModelID = lastAssistantEntry.Message.Model
 		}

@@ -44,4 +44,14 @@ var (
 
 	filterStyle = lipgloss.NewStyle().
 			Foreground(purple)
+
+	helpKeyStyle = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(purple)
+
+	helpDescStyle = lipgloss.NewStyle().
+			Foreground(gray)
+
+	helpSepStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#444444"))
 )

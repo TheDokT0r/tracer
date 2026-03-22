@@ -97,7 +97,9 @@ func (a App) updateList(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.list.filtering = true
 			a.list.filter.Focus()
 			return a, nil
-		case "enter", "v":
+		case "enter":
+			return a.resumeSession()
+		case "v":
 			return a.openDetail()
 		case "c":
 			return a.copySessionID()
@@ -187,6 +189,7 @@ func (a App) resumeSession() (tea.Model, tea.Cmd) {
 	}
 
 	c := exec.Command(claudeBin, "--resume", s.ID)
+	c.Dir = s.Directory
 	return a, tea.ExecProcess(c, func(err error) tea.Msg {
 		return tea.Quit()
 	})

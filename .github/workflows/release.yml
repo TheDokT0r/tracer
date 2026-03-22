@@ -11,6 +11,9 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.next }}
+      skip: ${{ steps.version.outputs.skip }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -26,30 +29,25 @@ jobs:
       - name: Determine next version
         id: version
         run: |
-          # Get latest tag or default to v0.0.0
           LATEST=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
           echo "latest=$LATEST" >> "$GITHUB_OUTPUT"
 
-          # Parse current version
           VERSION="${LATEST#v}"
           MAJOR=$(echo "$VERSION" | cut -d. -f1)
           MINOR=$(echo "$VERSION" | cut -d. -f2)
           PATCH=$(echo "$VERSION" | cut -d. -f3)
 
-          # Analyze commits since last tag
           if [ "$LATEST" = "v0.0.0" ]; then
             COMMITS=$(git log --format="%s" --no-merges)
           else
             COMMITS=$(git log "$LATEST"..HEAD --format="%s" --no-merges)
           fi
 
-          # No commits since last tag = no release
           if [ -z "$COMMITS" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          # Determine bump type from conventional commits
           BUMP="none"
           while IFS= read -r msg; do
             if echo "$msg" | grep -qE "^[a-z]+!:|BREAKING CHANGE"; then
@@ -62,7 +60,6 @@ jobs:
             fi
           done <<< "$COMMITS"
 
-          # No feat/fix/breaking commits = no release
           if [ "$BUMP" = "none" ]; then
             echo "No release-worthy commits, skipping"
             echo "skip=true" >> "$GITHUB_OUTPUT"
@@ -77,7 +74,6 @@ jobs:
 
           NEXT="v${MAJOR}.${MINOR}.${PATCH}"
 
-          # Skip if this tag already exists
           if git tag -l | grep -qx "$NEXT"; then
             echo "Tag $NEXT already exists, skipping"
             echo "skip=true" >> "$GITHUB_OUTPUT"
@@ -102,6 +98,30 @@ jobs:
             rm build/tracer build/tracer.1
           done
 
+      - name: Upload binaries
+        if: steps.version.outputs.skip != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: binaries
+          path: build-darwin/
+          retention-days: 1
+
+      - name: Build darwin binaries for dmg
+        if: steps.version.outputs.skip != 'true'
+        run: |
+          VERSION=${{ steps.version.outputs.next }}
+          mkdir -p build-darwin
+          for ARCH in amd64 arm64; do
+            GOOS=darwin GOARCH=$ARCH go build -ldflags "-s -w -X main.version=$VERSION" -o "build-darwin/tracer-darwin-${ARCH}" .
+          done
+
+      - name: Upload darwin binaries
+        if: steps.version.outputs.skip != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: darwin-binaries
+          path: build-darwin/
+
       - name: Create tag and release
         if: steps.version.outputs.skip != 'true'
         env:
@@ -111,3 +131,57 @@ jobs:
           git tag "$VERSION"
           git push origin "$VERSION"
           gh release create "$VERSION" dist/* --generate-notes --title "$VERSION"
+
+  dmg:
+    needs: release
+    if: needs.release.outputs.skip != 'true'
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download darwin binaries
+        uses: actions/download-artifact@v4
+        with:
+          name: darwin-binaries
+          path: build-darwin/
+
+      - name: Create DMGs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=${{ needs.release.outputs.version }}
+
+          for ARCH in amd64 arm64; do
+            BINARY="build-darwin/tracer-darwin-${ARCH}"
+            chmod +x "$BINARY"
+
+            DMG_NAME="tracer-darwin-${ARCH}"
+            DMG_DIR="dmg-staging-${ARCH}"
+            mkdir -p "$DMG_DIR"
+
+            cp "$BINARY" "$DMG_DIR/tracer"
+            cp tracer.1 "$DMG_DIR/"
+
+            # Create a simple README for the DMG
+            cat > "$DMG_DIR/INSTALL.txt" << 'INSTALL'
+          To install tracer:
+
+            1. Copy "tracer" to /usr/local/bin or ~/.local/bin
+            2. Optionally copy "tracer.1" to ~/.local/share/man/man1/
+
+          Or run:
+            cp tracer ~/.local/bin/ && chmod +x ~/.local/bin/tracer
+          INSTALL
+
+            hdiutil create -volname "tracer ${VERSION}" \
+              -srcfolder "$DMG_DIR" \
+              -ov -format UDZO \
+              "${DMG_NAME}.dmg"
+          done
+
+      - name: Upload DMGs to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=${{ needs.release.outputs.version }}
+          gh release upload "$VERSION" tracer-darwin-amd64.dmg tracer-darwin-arm64.dmg

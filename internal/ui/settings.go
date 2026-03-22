@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	tea "charm.land/bubbletea/v2"
 	"tracer/internal/config"
 )
 
@@ -153,6 +154,62 @@ func (sv settingsView) view() string {
 	)
 
 	return b.String()
+}
+
+// SettingsApp wraps settingsView as a standalone tea.Model for the subcommand.
+type SettingsApp struct {
+	sv       settingsView
+	saved    bool
+}
+
+func NewSettingsApp(cfg config.Config) SettingsApp {
+	return SettingsApp{
+		sv: newSettingsView(cfg, 80, 24),
+	}
+}
+
+func (sa SettingsApp) Init() tea.Cmd { return nil }
+
+func (sa SettingsApp) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		sa.sv.width = msg.Width
+		sa.sv.height = msg.Height
+		return sa, nil
+	case tea.KeyPressMsg:
+		switch msg.String() {
+		case "esc", "q", "ctrl+c":
+			sa.saved = true
+			return sa, tea.Quit
+		case "up", "k":
+			if sa.sv.cursor > 0 {
+				sa.sv.cursor--
+			}
+		case "down", "j":
+			if sa.sv.cursor < int(settingCount)-1 {
+				sa.sv.cursor++
+			}
+		case "right", "l", "enter":
+			sa.sv.cycleRight()
+		case "left", "h":
+			sa.sv.cycleLeft()
+		}
+	}
+	return sa, nil
+}
+
+func (sa SettingsApp) View() tea.View {
+	return tea.NewView(sa.sv.view())
+}
+
+// Config returns the (possibly modified) config.
+func (sa SettingsApp) Config() config.Config {
+	return sa.sv.cfg
+}
+
+// Saved returns true if the user exited normally (not ctrl+c without saving intent).
+func (sa SettingsApp) Saved() bool {
+	return sa.saved
 }
 
 func boolDisplay(v bool) string {

@@ -40,6 +40,7 @@ func main() {
 			fmt.Println("Commands:")
 			fmt.Println("  update      Update tracer to the latest version")
 			fmt.Println("  theme       View or set the color theme")
+			fmt.Println("  settings    Open settings")
 			fmt.Println("  man         View the manual page")
 			fmt.Println()
 			fmt.Println("Options:")
@@ -52,6 +53,23 @@ func main() {
 			if err := updater.Update(version); err != nil {
 				fmt.Fprintf(os.Stderr, "Update failed: %v\n", err)
 				os.Exit(1)
+			}
+			os.Exit(0)
+		case "settings":
+			cfg := config.LoadConfig()
+			if t, ok := ui.Themes[cfg.Theme]; ok {
+				ui.ApplyTheme(t)
+			}
+			sa := ui.NewSettingsApp(cfg)
+			p := tea.NewProgram(sa)
+			result, err := p.Run()
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				os.Exit(1)
+			}
+			if app := result.(ui.SettingsApp); app.Saved() {
+				config.SaveConfig(app.Config())
+				fmt.Println("Settings saved.")
 			}
 			os.Exit(0)
 		case "theme":

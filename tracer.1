@@ -1,0 +1,254 @@
+.TH TRACER 1 "March 2026" "tracer" "User Commands"
+.SH NAME
+tracer \- browse, inspect, resume, and delete Claude Code sessions
+.SH SYNOPSIS
+.B tracer
+.RB [ \-v | \-\-version ]
+.br
+.B tracer update
+.br
+.B tracer theme
+.RB [ name ]
+.br
+.B tracer settings
+.br
+.B tracer man
+.SH DESCRIPTION
+.B tracer
+is an interactive TUI for managing Claude Code sessions stored in
+.IR ~/.claude/ .
+It displays all past sessions in a navigable table with name, date,
+working directory, and git branch. Sessions can be filtered, inspected,
+resumed, renamed, pinned, or deleted.
+.PP
+Session names respect the
+.B /rename
+command from Claude Code. Sessions can also be renamed from within tracer
+using the
+.B r
+key in the detail view.
+.SH COMMANDS
+.TP
+.B update
+Check for the latest release on GitHub and update the binary in place.
+Falls back to
+.B sudo
+if the install path is not writable. Detects Homebrew installs and
+redirects to
+.BR "brew upgrade" .
+.TP
+.B theme \fR[\fIname\fR]
+Without arguments, opens an interactive theme picker with live preview.
+With a name argument, sets the theme directly.
+Run \fBtracer theme\fR to see all available themes.
+.TP
+.B settings
+Open the settings editor. Same as pressing
+.B s
+in the list view.
+.TP
+.B man
+View this manual page.
+.SH OPTIONS
+.TP
+.BR \-v ", " \-\-version
+Print the version and exit.
+.TP
+.BR \-h ", " \-\-help
+Print a short help message and exit.
+.SH KEY BINDINGS
+.SS List View
+.TS
+l l.
+Key	Action
+_
+n	Start new Claude session
+Enter	Resume session
+f	Fork session (new session ID, same conversation)
+v	View session details
+c	Copy session ID to clipboard
+p	Pin/unpin session to top
+d	Delete session
+s	Open settings
+/	Filter sessions
+Tab	Switch to Skills tab
+Esc	Clear filter
+\(ua/\(da	Navigate
+q	Quit
+.TE
+.SS Detail View
+.TS
+l l.
+Key	Action
+_
+Enter	Resume session
+f	Fork session (new session ID, same conversation)
+r	Rename session
+e	Edit session file in $EDITOR
+c	Copy session ID to clipboard
+d	Delete session
+\(ua/\(da	Scroll conversation
+Esc	Back to list
+.TE
+.SS Skills List View
+.TS
+l l.
+Key	Action
+_
+Enter/v	View skill details
+e	Edit skill in $EDITOR
+n	Create new skill
+d	Delete skill
+/	Filter skills
+Tab	Switch to Sessions tab
+Esc	Clear filter
+\(ua/\(da	Navigate
+q	Quit
+.TE
+.SS Skill Detail View
+.TS
+l l.
+Key	Action
+_
+e	Edit skill in $EDITOR
+d	Delete skill
+\(ua/\(da	Scroll content
+Esc	Back to skills list
+.TE
+.SS Settings View
+.TS
+l l.
+Key	Action
+_
+\(ua/\(da	Navigate settings
+\(<-/\(->	Change value
+Enter	Change value
+Esc	Save and go back
+.TE
+.SH SETTINGS
+Accessible via the
+.B s
+key from the list view, the
+.B tracer settings
+command, or by editing
+.IR ~/.config/tracer/config.json .
+.TP
+.B Theme
+Color theme. Run \fBtracer theme\fR to preview all available themes.
+.TP
+.B Sort by
+Default sort order: date (newest first), name (alphabetical), or directory.
+.TP
+.B Show date
+Toggle the Date column in the list view.
+.TP
+.B Show directory
+Toggle the Directory column in the list view.
+.TP
+.B Show branch
+Toggle the Branch column in the list view.
+.TP
+.B Confirm delete
+When on, deleting a session requires a y/N confirmation.
+When off, sessions are deleted immediately.
+.TP
+.B Auto update
+When on, checks for updates on startup and installs automatically.
+Off by default. Disabled for Homebrew installs.
+.SH DETAIL VIEW
+The detail view shows session metadata including:
+.IP \(bu 2
+Session ID, date, working directory, git branch
+.IP \(bu 2
+Message count (user and assistant)
+.IP \(bu 2
+Context usage progress bar (tokens used vs. model context window)
+.IP \(bu 2
+Output token count
+.IP \(bu 2
+Scrollable conversation preview
+.SH FILES
+.TP
+.I ~/.claude/projects/{path}/{sessionId}.jsonl
+Session conversation files. Each JSONL line is a message entry.
+.TP
+.I ~/.claude/history.jsonl
+Global history log. Used to detect /rename commands.
+.TP
+.I ~/.claude/file\-history/{sessionId}/
+File version history per session. Deleted when a session is removed.
+.TP
+.I ~/.claude/tasks/{sessionId}/
+Task definitions per session. Deleted when a session is removed.
+.TP
+.I ~/.config/tracer/config.json
+Persistent settings (theme, sort order, column visibility, confirm delete, auto update).
+.TP
+.I ~/.config/tracer/pins.json
+Pinned session IDs.
+.TP
+.I ~/.config/tracer/renames.json
+Custom session names set from within tracer.
+.SH ENVIRONMENT
+.TP
+.B HOME
+Used to locate the
+.I ~/.claude/
+directory and to shorten paths in the display.
+.TP
+.B EDITOR
+Used by the
+.B e
+key in the detail view to open the session file for editing.
+Falls back to
+.B vi
+if not set.
+.SH EXIT STATUS
+.TP
+.B 0
+Normal exit.
+.TP
+.B 1
+Error (failed to scan sessions, update failure, etc.)
+.SH EXAMPLES
+Launch the TUI:
+.PP
+.RS
+.B tracer
+.RE
+.PP
+Check current version:
+.PP
+.RS
+.B tracer \-\-version
+.RE
+.PP
+Update to the latest release:
+.PP
+.RS
+.B tracer update
+.RE
+.PP
+Open interactive theme picker:
+.PP
+.RS
+.B tracer theme
+.RE
+.PP
+Set theme directly:
+.PP
+.RS
+.B tracer theme dracula
+.RE
+.PP
+Open settings:
+.PP
+.RS
+.B tracer settings
+.RE
+.SH AUTHORS
+Or Kwitzel
+.SH LICENSE
+MIT
+.SH SEE ALSO
+.BR claude (1)

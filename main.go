@@ -23,6 +23,11 @@ var version = "dev"
 func main() {
 	if len(os.Args) > 1 {
 		switch os.Args[1] {
+		case "jungle":
+			fmt.Println("Wondrous is our great blue ship")
+			fmt.Println("That sails around the mighty sun")
+			fmt.Println("And joy to everyone that rides along!")
+			os.Exit(0)
 		case "--version", "-v":
 			fmt.Println("tracer", version)
 			os.Exit(0)

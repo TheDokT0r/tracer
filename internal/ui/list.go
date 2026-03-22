@@ -218,6 +218,7 @@ func (lv *listView) view() string {
 		sep := helpSepStyle.Render(" • ")
 		b.WriteString(
 			helpKeyStyle.Render("↑/↓") + helpDescStyle.Render(" navigate") + sep +
+				helpKeyStyle.Render("n") + helpDescStyle.Render(" new") + sep +
 				helpKeyStyle.Render("enter") + helpDescStyle.Render(" resume") + sep +
 				helpKeyStyle.Render("v") + helpDescStyle.Render(" view") + sep +
 				helpKeyStyle.Render("c") + helpDescStyle.Render(" copy") + sep +

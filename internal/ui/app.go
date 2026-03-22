@@ -33,6 +33,8 @@ type App struct {
 	renames       map[string]string
 	renaming      bool
 	renameInput   textinput.Model
+	newSession    bool
+	newSessionDir textinput.Model
 	confirmDelete bool
 	width         int
 	height        int
@@ -114,6 +116,10 @@ func (a App) updateList(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
+		if a.newSession {
+			return a.updateNewSession(msg)
+		}
+
 		switch msg.String() {
 		case "q", "ctrl+c":
 			return a, tea.Quit
@@ -121,6 +127,8 @@ func (a App) updateList(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.list.filtering = true
 			a.list.filter.Focus()
 			return a, nil
+		case "n":
+			return a.startNewSession()
 		case "enter":
 			return a.resumeSession()
 		case "v":
@@ -246,6 +254,48 @@ func (a App) updateRename(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	a.renameInput, cmd = a.renameInput.Update(msg)
 	return a, cmd
+}
+
+func (a App) startNewSession() (tea.Model, tea.Cmd) {
+	cwd, _ := os.Getwd()
+	ti := textinput.New()
+	ti.Placeholder = cwd
+	ti.SetValue(cwd)
+	ti.Focus()
+	ti.CharLimit = 256
+	a.newSessionDir = ti
+	a.newSession = true
+	return a, nil
+}
+
+func (a App) updateNewSession(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "esc":
+		a.newSession = false
+		return a, nil
+	case "enter":
+		dir := strings.TrimSpace(a.newSessionDir.Value())
+		if dir == "" {
+			dir, _ = os.Getwd()
+		}
+		a.newSession = false
+		return a.launchNewSession(dir)
+	}
+	var cmd tea.Cmd
+	a.newSessionDir, cmd = a.newSessionDir.Update(msg)
+	return a, cmd
+}
+
+func (a App) launchNewSession(dir string) (tea.Model, tea.Cmd) {
+	claudeBin, err := exec.LookPath("claude")
+	if err != nil {
+		return a, nil
+	}
+	c := exec.Command(claudeBin)
+	c.Dir = dir
+	return a, tea.ExecProcess(c, func(err error) tea.Msg {
+		return tea.Quit()
+	})
 }
 
 type editorFinishedMsg struct{}
@@ -393,6 +443,10 @@ func (a App) View() tea.View {
 		content = a.detail.view()
 	case viewSettings:
 		content = a.settings.view()
+	}
+
+	if a.newSession {
+		content += "\n" + helpKeyStyle.Render("New session path: ") + a.newSessionDir.View()
 	}
 
 	if a.renaming {

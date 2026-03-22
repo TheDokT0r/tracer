@@ -97,8 +97,9 @@ jobs:
             OS="${TARGET%-*}"
             ARCH="${TARGET#*-}"
             GOOS=$OS GOARCH=$ARCH go build -ldflags "-s -w -X main.version=$VERSION" -o build/tracer .
-            tar -czf "dist/tracer-${TARGET}.tar.gz" -C build tracer
-            rm build/tracer
+            cp tracer.1 build/
+            tar -czf "dist/tracer-${TARGET}.tar.gz" -C build tracer tracer.1
+            rm build/tracer build/tracer.1
           done
 
       - name: Create tag and release

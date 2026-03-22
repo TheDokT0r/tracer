@@ -1,0 +1,119 @@
+.TH TRACER 1 "March 2026" "tracer" "User Commands"
+.SH NAME
+tracer \- browse, inspect, resume, and delete Claude Code sessions
+.SH SYNOPSIS
+.B tracer
+.RB [ \-v | \-\-version ]
+.br
+.B tracer update
+.SH DESCRIPTION
+.B tracer
+is an interactive TUI for managing Claude Code sessions stored in
+.IR ~/.claude/ .
+It displays all past sessions in a navigable table with name, date,
+working directory, and git branch. Sessions can be filtered, inspected,
+resumed, copied, or deleted.
+.PP
+Session names respect the
+.B /rename
+command from Claude Code. If a session was renamed, the custom name is shown
+instead of the first user message.
+.SH COMMANDS
+.TP
+.B update
+Check for the latest release on GitHub and update the binary in place.
+Falls back to
+.B sudo
+if the install path is not writable.
+.SH OPTIONS
+.TP
+.BR \-v ", " \-\-version
+Print the version and exit.
+.SH KEY BINDINGS
+.SS List View
+.TS
+l l.
+Key	Action
+_
+Enter	Resume session
+v	View session details
+c	Copy session ID to clipboard
+d	Delete session (with confirmation)
+/	Filter sessions
+Esc	Clear filter
+\(ua/\(da	Navigate
+q	Quit
+.TE
+.SS Detail View
+.TS
+l l.
+Key	Action
+_
+Enter	Resume session
+c	Copy session ID to clipboard
+d	Delete session (with confirmation)
+\(ua/\(da	Scroll conversation
+Esc	Back to list
+.TE
+.SH DETAIL VIEW
+The detail view shows session metadata including:
+.IP \(bu 2
+Session ID, date, working directory, git branch
+.IP \(bu 2
+Message count (user and assistant)
+.IP \(bu 2
+Context usage progress bar (tokens used vs. model context window)
+.IP \(bu 2
+Output token count
+.IP \(bu 2
+Scrollable conversation preview
+.SH FILES
+.TP
+.I ~/.claude/projects/{path}/{sessionId}.jsonl
+Session conversation files. Each JSONL line is a message entry.
+.TP
+.I ~/.claude/history.jsonl
+Global history log. Used to detect /rename commands.
+.TP
+.I ~/.claude/file\-history/{sessionId}/
+File version history per session. Deleted when a session is removed.
+.TP
+.I ~/.claude/tasks/{sessionId}/
+Task definitions per session. Deleted when a session is removed.
+.SH ENVIRONMENT
+.TP
+.B HOME
+Used to locate the
+.I ~/.claude/
+directory and to shorten paths in the display.
+.SH EXIT STATUS
+.TP
+.B 0
+Normal exit.
+.TP
+.B 1
+Error (failed to scan sessions, update failure, etc.)
+.SH EXAMPLES
+Launch the TUI:
+.PP
+.RS
+.B tracer
+.RE
+.PP
+Check current version:
+.PP
+.RS
+.B tracer \-\-version
+.RE
+.PP
+Update to the latest release:
+.PP
+.RS
+.B tracer update
+.RE
+.SH AUTHORS
+Or Kwitzel
+.SH LICENSE
+MIT
+.SH SEE ALSO
+.BR claude (1)

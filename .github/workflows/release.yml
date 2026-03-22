@@ -2,8 +2,8 @@ name: Release
 
 on:
   push:
-    tags:
-      - "v*"
+    branches:
+      - master
 
 permissions:
   contents: write
@@ -13,6 +13,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-go@v5
         with:
@@ -21,17 +23,78 @@ jobs:
       - name: Run tests
         run: go test ./...
 
-      - name: Build binaries
+      - name: Determine next version
+        id: version
         run: |
-          mkdir -p dist
-          GOOS=darwin  GOARCH=amd64 go build -ldflags "-s -w -X main.version=${{ github.ref_name }}" -o dist/tracer-darwin-amd64 .
-          GOOS=darwin  GOARCH=arm64 go build -ldflags "-s -w -X main.version=${{ github.ref_name }}" -o dist/tracer-darwin-arm64 .
-          GOOS=linux   GOARCH=amd64 go build -ldflags "-s -w -X main.version=${{ github.ref_name }}" -o dist/tracer-linux-amd64 .
-          GOOS=linux   GOARCH=arm64 go build -ldflags "-s -w -X main.version=${{ github.ref_name }}" -o dist/tracer-linux-arm64 .
-          GOOS=windows GOARCH=amd64 go build -ldflags "-s -w -X main.version=${{ github.ref_name }}" -o dist/tracer-windows-amd64.exe .
+          # Get latest tag or default to v0.0.0
+          LATEST=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          echo "latest=$LATEST" >> "$GITHUB_OUTPUT"
 
-      - name: Create release
-        uses: softprops/action-gh-release@v2
-        with:
-          generate_release_notes: true
-          files: dist/*
+          # Parse current version
+          VERSION="${LATEST#v}"
+          MAJOR=$(echo "$VERSION" | cut -d. -f1)
+          MINOR=$(echo "$VERSION" | cut -d. -f2)
+          PATCH=$(echo "$VERSION" | cut -d. -f3)
+
+          # Analyze commits since last tag
+          if [ "$LATEST" = "v0.0.0" ]; then
+            COMMITS=$(git log --format="%s" --no-merges)
+          else
+            COMMITS=$(git log "$LATEST"..HEAD --format="%s" --no-merges)
+          fi
+
+          # No commits since last tag = no release
+          if [ -z "$COMMITS" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Determine bump type from conventional commits
+          BUMP="none"
+          while IFS= read -r msg; do
+            if echo "$msg" | grep -qE "^[a-z]+!:|BREAKING CHANGE"; then
+              BUMP="major"
+              break
+            elif echo "$msg" | grep -qE "^feat(\(.+\))?:"; then
+              [ "$BUMP" != "major" ] && BUMP="minor"
+            elif echo "$msg" | grep -qE "^fix(\(.+\))?:"; then
+              [ "$BUMP" = "none" ] && BUMP="patch"
+            fi
+          done <<< "$COMMITS"
+
+          # Default to patch if there are commits but no conventional prefix
+          [ "$BUMP" = "none" ] && BUMP="patch"
+
+          case "$BUMP" in
+            major) MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;
+            minor) MINOR=$((MINOR + 1)); PATCH=0 ;;
+            patch) PATCH=$((PATCH + 1)) ;;
+          esac
+
+          NEXT="v${MAJOR}.${MINOR}.${PATCH}"
+          echo "next=$NEXT" >> "$GITHUB_OUTPUT"
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+          echo "Bump: $BUMP ($LATEST -> $NEXT)"
+
+      - name: Build binaries
+        if: steps.version.outputs.skip != 'true'
+        run: |
+          VERSION=${{ steps.version.outputs.next }}
+          mkdir -p build dist
+          for TARGET in darwin-amd64 darwin-arm64 linux-amd64 linux-arm64; do
+            OS="${TARGET%-*}"
+            ARCH="${TARGET#*-}"
+            GOOS=$OS GOARCH=$ARCH go build -ldflags "-s -w -X main.version=$VERSION" -o build/tracer .
+            tar -czf "dist/tracer-${TARGET}.tar.gz" -C build tracer
+            rm build/tracer
+          done
+
+      - name: Create tag and release
+        if: steps.version.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=${{ steps.version.outputs.next }}
+          git tag "$VERSION"
+          git push origin "$VERSION"
+          gh release create "$VERSION" dist/* --generate-notes --title "$VERSION"

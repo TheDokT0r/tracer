@@ -97,3 +97,21 @@ Tests are in `internal/claude/` covering JSONL parsing, session scanning, and de
 
 ### Changing styles
 All colors and styles are in `ui/styles.go`. Views reference these package-level vars.
+
+### Releasing a new version
+
+Releases are automatic. Pushing to `master` triggers `.github/workflows/release.yml`, which:
+1. Analyzes commit messages since the last tag
+2. Determines the version bump from conventional commit prefixes
+3. Builds binaries for macOS (Intel + Apple Silicon) and Linux (amd64 + arm64)
+4. Creates a git tag and GitHub release
+
+**Version bump rules (from commit messages):**
+- `fix:` or `fix(scope):` → **patch** (v0.1.0 → v0.1.1)
+- `feat:` or `feat(scope):` → **minor** (v0.1.1 → v0.2.0)
+- `feat!:`, `fix!:`, or `BREAKING CHANGE` in body → **major** (v0.2.0 → v1.0.0)
+- No conventional prefix → defaults to **patch**
+
+If there are no new commits since the last tag, the workflow skips the release.
+
+To check the latest tag: `git describe --tags --abbrev=0`

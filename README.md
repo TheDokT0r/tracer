@@ -17,17 +17,29 @@ A TUI for browsing, inspecting, resuming, and deleting your [Claude Code](https:
 
 ## Install
 
+### One-liner (macOS / Linux)
+
+```bash
+curl -fsSL https://github.com/TheDokT0r/tracer/releases/latest/download/tracer-$(uname -s | tr '[:upper:]' '[:lower:]')-$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz | tar -xz -C /usr/local/bin
+```
+
+### Go install
+
 ```bash
 go install github.com/TheDokT0r/tracer@latest
 ```
 
-Or build from source:
+### From source
 
 ```bash
 git clone https://github.com/TheDokT0r/tracer.git
 cd tracer
 go build -o tracer .
 ```
+
+### Manual download
+
+Grab the latest `.tar.gz` for your platform from [Releases](https://github.com/TheDokT0r/tracer/releases) and extract it somewhere on your `$PATH`.
 
 ## Usage
 

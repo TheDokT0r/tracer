@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"os/exec"
+	"runtime"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -201,9 +202,20 @@ func (a App) copySessionID() (tea.Model, tea.Cmd) {
 		return a, nil
 	}
 
-	cmd := exec.Command("pbcopy")
-	cmd.Stdin = strings.NewReader(s.ID)
-	cmd.Run()
+	var clipCmd *exec.Cmd
+	switch runtime.GOOS {
+	case "darwin":
+		clipCmd = exec.Command("pbcopy")
+	default:
+		// Try xclip, fall back to xsel
+		if _, err := exec.LookPath("xclip"); err == nil {
+			clipCmd = exec.Command("xclip", "-selection", "clipboard")
+		} else {
+			clipCmd = exec.Command("xsel", "--clipboard", "--input")
+		}
+	}
+	clipCmd.Stdin = strings.NewReader(s.ID)
+	clipCmd.Run()
 
 	return a, nil
 }

@@ -2,10 +2,13 @@ package ui
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 
+	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 	"tracer/internal/claude"
 	"tracer/internal/config"
@@ -27,15 +30,19 @@ type App struct {
 	list          listView
 	detail        detailView
 	settings      settingsView
+	renames       map[string]string
+	renaming      bool
+	renameInput   textinput.Model
 	confirmDelete bool
 	width         int
 	height        int
 }
 
-func NewApp(claudeDir string, sessions []model.Session, pins map[string]bool, cfg config.Config) App {
+func NewApp(claudeDir string, sessions []model.Session, pins map[string]bool, cfg config.Config, renames map[string]string) App {
 	return App{
 		claudeDir: claudeDir,
 		cfg:       cfg,
+		renames:   renames,
 		list:      newListView(sessions, pins, cfg, 80, 24),
 		view:      viewList,
 	}
@@ -142,6 +149,10 @@ func (a App) updateList(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (a App) updateDetail(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if a.renaming {
+		return a.updateRename(msg)
+	}
+
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
 		switch msg.String() {
@@ -152,6 +163,10 @@ func (a App) updateDetail(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a.resumeSession()
 		case "c":
 			return a.copySessionID()
+		case "r":
+			return a.startRename()
+		case "e":
+			return a.editSessionFile()
 		case "d":
 			if a.cfg.ConfirmDelete {
 				a.confirmDelete = true
@@ -172,6 +187,67 @@ func (a App) updateDetail(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	a.detail.viewport, cmd = a.detail.viewport.Update(msg)
 	return a, cmd
+}
+
+func (a App) startRename() (tea.Model, tea.Cmd) {
+	s := a.list.selectedSession()
+	if s == nil {
+		return a, nil
+	}
+	ti := textinput.New()
+	ti.Placeholder = "new name..."
+	ti.SetValue(s.Name)
+	ti.Focus()
+	ti.CharLimit = 80
+	a.renameInput = ti
+	a.renaming = true
+	return a, nil
+}
+
+func (a App) updateRename(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyPressMsg:
+		switch msg.String() {
+		case "esc":
+			a.renaming = false
+			return a, nil
+		case "enter":
+			s := a.list.selectedSession()
+			if s != nil {
+				name := strings.TrimSpace(a.renameInput.Value())
+				if name != "" {
+					a.renames[s.ID] = name
+					config.SaveRenames(a.renames)
+					s.Name = name
+					a.detail.session.Name = name
+					a.list.rebuildTable()
+				}
+			}
+			a.renaming = false
+			return a, nil
+		}
+	}
+	var cmd tea.Cmd
+	a.renameInput, cmd = a.renameInput.Update(msg)
+	return a, cmd
+}
+
+func (a App) editSessionFile() (tea.Model, tea.Cmd) {
+	s := a.list.selectedSession()
+	if s == nil {
+		return a, nil
+	}
+
+	editor := os.Getenv("EDITOR")
+	if editor == "" {
+		editor = "vi"
+	}
+
+	path := filepath.Join(a.claudeDir, "projects", s.ProjectPath, s.ID+".jsonl")
+	c := exec.Command(editor, path)
+	return a, tea.ExecProcess(c, func(err error) tea.Msg {
+		return nil
+	})
 }
 
 func (a App) updateSettings(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -299,6 +375,10 @@ func (a App) View() tea.View {
 		content = a.detail.view()
 	case viewSettings:
 		content = a.settings.view()
+	}
+
+	if a.renaming {
+		content += "\n" + helpKeyStyle.Render("Rename: ") + a.renameInput.View()
 	}
 
 	if a.confirmDelete {

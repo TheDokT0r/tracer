@@ -162,7 +162,16 @@ func main() {
 	}
 
 	pins := config.LoadPins()
-	app := ui.NewApp(claudeDir, sessions, pins, cfg)
+	renames := config.LoadRenames()
+
+	// Apply tracer renames on top of Claude /rename
+	for i := range sessions {
+		if name, ok := renames[sessions[i].ID]; ok {
+			sessions[i].Name = name
+		}
+	}
+
+	app := ui.NewApp(claudeDir, sessions, pins, cfg, renames)
 	p := tea.NewProgram(app)
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)

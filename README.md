@@ -17,10 +17,10 @@ A TUI for browsing, inspecting, resuming, and deleting your [Claude Code](https:
 
 ## Install
 
-### One-liner (macOS / Linux)
+### Quick install (macOS / Linux)
 
 ```bash
-curl -fsSL https://github.com/TheDokT0r/tracer/releases/latest/download/tracer-$(uname -s | tr '[:upper:]' '[:lower:]')-$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz | tar -xz -C /usr/local/bin
+curl -fsSL https://raw.githubusercontent.com/TheDokT0r/tracer/master/install.sh | sh
 ```
 
 ### Go install

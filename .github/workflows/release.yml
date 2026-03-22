@@ -72,6 +72,14 @@ jobs:
           esac
 
           NEXT="v${MAJOR}.${MINOR}.${PATCH}"
+
+          # Skip if this tag already exists
+          if git tag -l | grep -qx "$NEXT"; then
+            echo "Tag $NEXT already exists, skipping"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
           echo "next=$NEXT" >> "$GITHUB_OUTPUT"
           echo "skip=false" >> "$GITHUB_OUTPUT"
           echo "Bump: $BUMP ($LATEST -> $NEXT)"

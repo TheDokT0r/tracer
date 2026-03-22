@@ -10,6 +10,8 @@ tracer \- browse, inspect, resume, and delete Claude Code sessions
 .B tracer theme
 .RB [ name ]
 .br
+.B tracer settings
+.br
 .B tracer man
 .SH DESCRIPTION
 .B tracer
@@ -17,24 +19,33 @@ is an interactive TUI for managing Claude Code sessions stored in
 .IR ~/.claude/ .
 It displays all past sessions in a navigable table with name, date,
 working directory, and git branch. Sessions can be filtered, inspected,
-resumed, copied, pinned, or deleted.
+resumed, renamed, pinned, or deleted.
 .PP
 Session names respect the
 .B /rename
-command from Claude Code. If a session was renamed, the custom name is shown
-instead of the first user message.
+command from Claude Code. Sessions can also be renamed from within tracer
+using the
+.B r
+key in the detail view.
 .SH COMMANDS
 .TP
 .B update
 Check for the latest release on GitHub and update the binary in place.
 Falls back to
 .B sudo
-if the install path is not writable.
+if the install path is not writable. Detects Homebrew installs and
+redirects to
+.BR "brew upgrade" .
 .TP
 .B theme \fR[\fIname\fR]
 Without arguments, opens an interactive theme picker with live preview.
 With a name argument, sets the theme directly.
-Run \fBtracer theme\fR to see all available themes and preview them interactively.
+Run \fBtracer theme\fR to see all available themes.
+.TP
+.B settings
+Open the settings editor. Same as pressing
+.B s
+in the list view.
 .TP
 .B man
 View this manual page.
@@ -51,6 +62,7 @@ Print a short help message and exit.
 l l.
 Key	Action
 _
+n	Start new Claude session
 Enter	Resume session
 v	View session details
 c	Copy session ID to clipboard
@@ -68,6 +80,8 @@ l l.
 Key	Action
 _
 Enter	Resume session
+r	Rename session
+e	Edit session file in $EDITOR
 c	Copy session ID to clipboard
 d	Delete session
 \(ua/\(da	Scroll conversation
@@ -86,11 +100,13 @@ Esc	Save and go back
 .SH SETTINGS
 Accessible via the
 .B s
-key from the list view, or by editing
+key from the list view, the
+.B tracer settings
+command, or by editing
 .IR ~/.config/tracer/config.json .
 .TP
 .B Theme
-Color theme (default, minimal, ocean, rose).
+Color theme. Run \fBtracer theme\fR to preview all available themes.
 .TP
 .B Sort by
 Default sort order: date (newest first), name (alphabetical), or directory.
@@ -107,6 +123,10 @@ Toggle the Branch column in the list view.
 .B Confirm delete
 When on, deleting a session requires a y/N confirmation.
 When off, sessions are deleted immediately.
+.TP
+.B Auto update
+When on, checks for updates on startup and installs automatically.
+Off by default. Disabled for Homebrew installs.
 .SH DETAIL VIEW
 The detail view shows session metadata including:
 .IP \(bu 2
@@ -134,16 +154,27 @@ File version history per session. Deleted when a session is removed.
 Task definitions per session. Deleted when a session is removed.
 .TP
 .I ~/.config/tracer/config.json
-Persistent settings (theme, sort order, column visibility, confirm delete).
+Persistent settings (theme, sort order, column visibility, confirm delete, auto update).
 .TP
 .I ~/.config/tracer/pins.json
 Pinned session IDs.
+.TP
+.I ~/.config/tracer/renames.json
+Custom session names set from within tracer.
 .SH ENVIRONMENT
 .TP
 .B HOME
 Used to locate the
 .I ~/.claude/
 directory and to shorten paths in the display.
+.TP
+.B EDITOR
+Used by the
+.B e
+key in the detail view to open the session file for editing.
+Falls back to
+.B vi
+if not set.
 .SH EXIT STATUS
 .TP
 .B 0
@@ -179,7 +210,13 @@ Open interactive theme picker:
 Set theme directly:
 .PP
 .RS
-.B tracer theme ocean
+.B tracer theme dracula
+.RE
+.PP
+Open settings:
+.PP
+.RS
+.B tracer settings
 .RE
 .SH AUTHORS
 Or Kwitzel

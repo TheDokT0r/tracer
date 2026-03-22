@@ -8,14 +8,24 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"tracer/internal/claude"
 	"tracer/internal/ui"
+	"tracer/internal/updater"
 )
 
 var version = "dev"
 
 func main() {
-	if len(os.Args) > 1 && (os.Args[1] == "--version" || os.Args[1] == "-v") {
-		fmt.Println("tracer", version)
-		os.Exit(0)
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "--version", "-v":
+			fmt.Println("tracer", version)
+			os.Exit(0)
+		case "update":
+			if err := updater.Update(version); err != nil {
+				fmt.Fprintf(os.Stderr, "Update failed: %v\n", err)
+				os.Exit(1)
+			}
+			os.Exit(0)
+		}
 	}
 
 	home, err := os.UserHomeDir()

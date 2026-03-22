@@ -169,6 +169,7 @@ func (a App) openDetail() (tea.Model, tea.Cmd) {
 	if s == nil {
 		return a, nil
 	}
+	claude.LoadSessionDetails(a.claudeDir, s)
 	messages, err := claude.LoadConversation(a.claudeDir, *s)
 	if err != nil {
 		return a, nil

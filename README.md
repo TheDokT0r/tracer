@@ -141,7 +141,7 @@ tracer reads data from `~/.claude/`:
 - **History** (`history.jsonl`) — detects `/rename` commands for custom session names
 - **Skills** (`skills/`, `commands/`, `plugins/cache/`) — skill definitions and commands
 
-Startup is fast — sessions are scanned in parallel, reading only the first message per file. Full details (token counts, conversation) are loaded on demand when opening the detail view.
+Startup is fast — sessions are scanned in parallel, reading only the first message per file. Auto-update checks run in the background and apply after the TUI exits, so they never block startup. Full details (token counts, conversation) are loaded on demand when opening the detail view.
 
 ## License
 

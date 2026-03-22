@@ -128,22 +128,23 @@ func main() {
 		ui.ApplyTheme(t)
 	}
 
-	// Auto-update check (skip for Homebrew installs)
+	// Auto-update check in background (skip for Homebrew installs)
+	type updateResult struct {
+		latest string
+		needed bool
+	}
+	updateCh := make(chan updateResult, 1)
 	if cfg.AutoUpdate && version != "dev" && !updater.IsHomebrew() {
-		latest, err := updater.Check()
-		if err == nil && updater.NeedsUpdate(version, latest) {
-			fmt.Printf("Updating tracer %s -> %s...\n", version, latest)
-			if err := updater.Update(version); err != nil {
-				fmt.Fprintf(os.Stderr, "Auto-update failed: %v\n", err)
+		go func() {
+			latest, err := updater.Check()
+			if err == nil && updater.NeedsUpdate(version, latest) {
+				updateCh <- updateResult{latest: latest, needed: true}
 			} else {
-				exe, err := os.Executable()
-				if err != nil {
-					fmt.Fprintf(os.Stderr, "Updated successfully. Please restart tracer manually.\n")
-				} else if err := syscall.Exec(exe, os.Args, os.Environ()); err != nil {
-					fmt.Fprintf(os.Stderr, "Updated successfully. Please restart tracer manually.\n")
-				}
+				updateCh <- updateResult{}
 			}
-		}
+		}()
+	} else {
+		updateCh <- updateResult{}
 	}
 
 	home, err := os.UserHomeDir()
@@ -182,5 +183,20 @@ func main() {
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
+	}
+
+	// Apply pending update after TUI exits
+	if res := <-updateCh; res.needed {
+		fmt.Printf("Updating tracer %s -> %s...\n", version, res.latest)
+		if err := updater.Update(version); err != nil {
+			fmt.Fprintf(os.Stderr, "Auto-update failed: %v\n", err)
+		} else {
+			exe, err := os.Executable()
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Updated to %s. It will take effect next launch.\n", res.latest)
+			} else if err := syscall.Exec(exe, os.Args, os.Environ()); err != nil {
+				fmt.Fprintf(os.Stderr, "Updated to %s. It will take effect next launch.\n", res.latest)
+			}
+		}
 	}
 }

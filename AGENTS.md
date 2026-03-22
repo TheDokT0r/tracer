@@ -1,6 +1,6 @@
-# tracer — Claude Code Session & Skill Manager
+# tracer — Claude Code Session, Skill & Settings Manager
 
-A Go CLI TUI for managing Claude Code sessions and skills.
+A Go CLI TUI for managing Claude Code sessions, skills, and permission settings.
 
 ## Architecture
 
@@ -19,6 +19,9 @@ tracer/
 │   │   ├── scanner.go             # ScanSkills — scans 4 locations, parses YAML frontmatter
 │   │   ├── scanner_test.go        # Tests for scanning and parsing
 │   │   └── crud.go                # CreateSkill, DeleteSkill
+│   ├── ccsettings/                # Claude Code settings.json management
+│   │   ├── model.go               # SettingsFile, Permissions, PermRule structs
+│   │   └── scanner.go             # ScanSettings, SavePermissions, AddRule, RemoveRule
 │   ├── config/
 │   │   ├── config.go              # Config struct (theme, sort, columns, confirm delete, auto update)
 │   │   ├── pins.go                # Pinned session IDs
@@ -27,11 +30,14 @@ tracer/
 │   │   └── session.go             # Session and Message structs, context window math
 │   ├── ui/
 │   │   ├── app.go                 # Top-level Bubbletea model — tab routing, view routing, key dispatch
-│   │   ├── tabs.go                # Tab bar (Sessions / Skills)
+│   │   ├── tabs.go                # Tab bar (Sessions / Skills / Permissions)
 │   │   ├── list.go                # Sessions list — table, filtering, sorting, column visibility
 │   │   ├── detail.go              # Session detail — metadata, context progress bar, conversation
 │   │   ├── skillslist.go          # Skills list — table, filtering
 │   │   ├── skilldetail.go         # Skill detail — metadata, full content viewport
+│   │   ├── permslist.go            # Permissions list — settings files table
+│   │   ├── permsdetail.go         # Permissions detail — rules table with add/toggle/delete
+│   │   ├── permsadd.go            # Add rule flow — multi-step inline prompt
 │   │   ├── settings.go            # Settings view + standalone SettingsApp
 │   │   ├── theme.go               # 11 theme definitions and ApplyTheme
 │   │   ├── themepicker.go         # Interactive theme picker (tracer theme command)
@@ -53,7 +59,23 @@ tracer/
 
 ### Tab System
 
-The app has two tabs: **Sessions** and **Skills**, switched with `Tab`/`Shift+Tab`. Each tab has its own list view and detail view. The tab bar renders at the top of list views. Detail views, settings, and the theme picker are full-screen without the tab bar.
+The app has three tabs: **Sessions**, **Skills**, and **Permissions**, cycled with `Tab`/`Shift+Tab`. Each tab has its own list and detail views. The tab bar renders at the top of list views.
+
+### Permissions Management
+
+The Permissions tab scans for `settings.json` files across three scopes:
+- **Global** — `~/.claude/settings.json`
+- **Project** — `{project}/.claude/settings.json` for each project found in `~/.claude/projects/`
+- **Local** — `{project}/.claude/settings.local.json`
+
+The list view shows all discovered files with scope, rule count, and path. The detail view shows a table of allow/deny rules for the selected file. Users can:
+- **Add rules** (`a`) — multi-step flow: pick allow/deny, type the rule pattern
+- **Toggle rules** (`t`) — switch a rule between allow and deny
+- **Delete rules** (`d`) — remove a rule
+
+Changes are saved immediately to the settings file, preserving all other JSON fields.
+
+### Data Sources
 
 ### Data Sources
 
@@ -146,7 +168,13 @@ Uses proper semver comparison (prevents downgrades). Detects Homebrew installs v
 
 **Theme picker** (`themepicker.go`): Standalone TUI for `tracer theme`. Live preview with sample table and conversation.
 
-**Tab bar** (`tabs.go`): Renders Sessions/Skills tabs. Active tab highlighted with theme primary color.
+**Permissions list** (`permslist.go`): Table of settings files with scope, rule count, path. Enter opens the detail view.
+
+**Permissions detail** (`permsdetail.go`): Table of allow/deny rules for a single settings file. Add (`a`), toggle (`t`), delete (`d`) rules. Saves to disk immediately.
+
+**Add rule** (`permsadd.go`): Multi-step inline prompt. Step 1: pick allow/deny. Step 2: type the rule pattern. Esc cancels at any step.
+
+**Tab bar** (`tabs.go`): Renders Sessions/Skills/Permissions tabs. Active tab highlighted with theme primary color.
 
 ### Key Bindings
 
@@ -177,6 +205,18 @@ Uses proper semver comparison (prevents downgrades). Detects Homebrew installs v
 | `d` | Delete | Delete |
 | `/` | Filter | — |
 | `Tab` | Switch to Sessions | — |
+| `Esc` | Clear filter | Back to list |
+
+#### Permissions Tab
+
+| Key | List | Detail |
+|-----|------|--------|
+| `Enter`/`v` | View rules | — |
+| `a` | — | Add rule |
+| `t` | — | Toggle allow/deny |
+| `d` | — | Delete rule |
+| `/` | Filter | — |
+| `Tab` | Next tab | — |
 | `Esc` | Clear filter | Back to list |
 
 #### Settings / General

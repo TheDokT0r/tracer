@@ -28,9 +28,16 @@ A TUI for managing your [Claude Code](https://docs.anthropic.com/en/docs/claude-
 - Delete user and command skills (plugin skills are read-only)
 - Filter skills by name or description
 
+### Permissions
+- Browse all Claude Code settings files (global, project, local)
+- View and manage allow/deny permission rules per file
+- Add new rules interactively (pick allow/deny, type the rule)
+- Toggle rules between allow and deny
+- Delete rules — changes saved immediately
+
 ### General
-- **Tab switching** — `Tab` to switch between Sessions and Skills
-- **11 color themes** — default, minimal, ocean, rose, forest, sunset, nord, dracula, solarized, monokai, catppuccin
+- **Tab switching** — `Tab` to cycle between Sessions, Skills, and Permissions
+- **12 color themes** — default, minimal, mono, ocean, rose, forest, sunset, nord, dracula, solarized, monokai, catppuccin
 - **In-app settings** — theme, sort order, column visibility, confirm delete, auto-update
 - **Interactive theme picker** — `tracer theme` with live preview
 - **Self-updating** — `tracer update`
@@ -100,7 +107,8 @@ tracer
 | `d` | Delete | Delete |
 | `s` | Open settings | — |
 | `/` | Filter | — |
-| `Tab` | Switch to Skills | — |
+| `f` | Fork session | Fork session |
+| `Tab` | Next tab | — |
 | `↑/↓` | Navigate | Scroll |
 | `Esc` | Clear filter | Back to list |
 | `q` | Quit | Back to list |
@@ -114,8 +122,22 @@ tracer
 | `n` | Create new skill | — |
 | `d` | Delete skill | Delete skill |
 | `/` | Filter | — |
-| `Tab` | Switch to Sessions | — |
+| `Tab` | Next tab | — |
 | `↑/↓` | Navigate | Scroll |
+| `Esc` | Clear filter | Back to list |
+| `q` | Quit | Back to list |
+
+#### Permissions Tab
+
+| Key | List View | Detail View |
+|-----|-----------|-------------|
+| `Enter`/`v` | View rules | — |
+| `a` | — | Add rule |
+| `t` | — | Toggle allow/deny |
+| `d` | — | Delete rule |
+| `/` | Filter | — |
+| `Tab` | Next tab | — |
+| `↑/↓` | Navigate | Navigate |
 | `Esc` | Clear filter | Back to list |
 | `q` | Quit | Back to list |
 
@@ -140,6 +162,7 @@ tracer reads data from `~/.claude/`:
 - **Session files** (`projects/{path}/{sessionId}.jsonl`) — full conversation history
 - **History** (`history.jsonl`) — detects `/rename` commands for custom session names
 - **Skills** (`skills/`, `commands/`, `plugins/cache/`) — skill definitions and commands
+- **Settings** (`settings.json`, `.claude/settings.json`) — permission rules (allow/deny)
 
 Startup is fast — sessions are scanned in parallel, reading only the first message per file. Auto-update checks run in the background and apply after the TUI exits, so they never block startup. Full details (token counts, conversation) are loaded on demand when opening the detail view.
 

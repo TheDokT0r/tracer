@@ -115,6 +115,29 @@ d	Delete skill
 \(ua/\(da	Scroll content
 Esc	Back to skills list
 .TE
+.SS Permissions List View
+.TS
+l l.
+Key	Action
+_
+Enter/v	View permission rules
+/	Filter files
+Tab	Switch to next tab
+Esc	Clear filter
+\(ua/\(da	Navigate
+q	Quit
+.TE
+.SS Permissions Detail View
+.TS
+l l.
+Key	Action
+_
+a	Add new permission rule
+t	Toggle rule between allow and deny
+d	Delete rule
+\(ua/\(da	Navigate rules
+Esc	Back to permissions list
+.TE
 .SS Settings View
 .TS
 l l.
@@ -189,6 +212,15 @@ Pinned session IDs.
 .TP
 .I ~/.config/tracer/renames.json
 Custom session names set from within tracer.
+.TP
+.I ~/.claude/settings.json
+Global Claude Code permission settings (allow/deny rules). Managed via the Permissions tab.
+.TP
+.I {project}/.claude/settings.json
+Project-level permission settings. Shared with collaborators.
+.TP
+.I {project}/.claude/settings.local.json
+Local project permission settings. Not committed to git.
 .SH ENVIRONMENT
 .TP
 .B HOME

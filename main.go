@@ -127,8 +127,8 @@ func main() {
 		ui.ApplyTheme(t)
 	}
 
-	// Auto-update check
-	if cfg.AutoUpdate && version != "dev" {
+	// Auto-update check (skip for Homebrew installs)
+	if cfg.AutoUpdate && version != "dev" && !updater.IsHomebrew() {
 		latest, err := updater.Check()
 		if err == nil && updater.NeedsUpdate(version, latest) {
 			fmt.Printf("Updating tracer %s -> %s...\n", version, latest)

@@ -98,30 +98,6 @@ jobs:
             rm build/tracer build/tracer.1
           done
 
-      - name: Upload binaries
-        if: steps.version.outputs.skip != 'true'
-        uses: actions/upload-artifact@v4
-        with:
-          name: binaries
-          path: build-darwin/
-          retention-days: 1
-
-      - name: Build darwin binaries for dmg
-        if: steps.version.outputs.skip != 'true'
-        run: |
-          VERSION=${{ steps.version.outputs.next }}
-          mkdir -p build-darwin
-          for ARCH in amd64 arm64; do
-            GOOS=darwin GOARCH=$ARCH go build -ldflags "-s -w -X main.version=$VERSION" -o "build-darwin/tracer-darwin-${ARCH}" .
-          done
-
-      - name: Upload darwin binaries
-        if: steps.version.outputs.skip != 'true'
-        uses: actions/upload-artifact@v4
-        with:
-          name: darwin-binaries
-          path: build-darwin/
-
       - name: Create tag and release
         if: steps.version.outputs.skip != 'true'
         env:
@@ -132,56 +108,68 @@ jobs:
           git push origin "$VERSION"
           gh release create "$VERSION" dist/* --generate-notes --title "$VERSION"
 
-  dmg:
-    needs: release
-    if: needs.release.outputs.skip != 'true'
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Download darwin binaries
-        uses: actions/download-artifact@v4
-        with:
-          name: darwin-binaries
-          path: build-darwin/
-
-      - name: Create DMGs
+      - name: Update Homebrew formula
+        if: steps.version.outputs.skip != 'true'
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
         run: |
-          VERSION=${{ needs.release.outputs.version }}
+          VERSION=${{ steps.version.outputs.next }}
+          VERSION_NUM="${VERSION#v}"
+          BASE_URL="https://github.com/TheDokT0r/tracer/releases/download/${VERSION}"
 
-          for ARCH in amd64 arm64; do
-            BINARY="build-darwin/tracer-darwin-${ARCH}"
-            chmod +x "$BINARY"
+          # Get sha256 for each archive
+          SHA_DARWIN_ARM64=$(curl -sL "${BASE_URL}/tracer-darwin-arm64.tar.gz" | sha256sum | cut -d' ' -f1)
+          SHA_DARWIN_AMD64=$(curl -sL "${BASE_URL}/tracer-darwin-amd64.tar.gz" | sha256sum | cut -d' ' -f1)
+          SHA_LINUX_ARM64=$(curl -sL "${BASE_URL}/tracer-linux-arm64.tar.gz" | sha256sum | cut -d' ' -f1)
+          SHA_LINUX_AMD64=$(curl -sL "${BASE_URL}/tracer-linux-amd64.tar.gz" | sha256sum | cut -d' ' -f1)
 
-            DMG_NAME="tracer-darwin-${ARCH}"
-            DMG_DIR="dmg-staging-${ARCH}"
-            mkdir -p "$DMG_DIR"
+          # Generate formula
+          cat > /tmp/tracer.rb << FORMULA
+          class Tracer < Formula
+            desc "TUI for browsing, inspecting, resuming, and deleting Claude Code sessions"
+            homepage "https://github.com/TheDokT0r/tracer"
+            version "${VERSION_NUM}"
+            license "MIT"
 
-            cp "$BINARY" "$DMG_DIR/tracer"
-            cp tracer.1 "$DMG_DIR/"
+            on_macos do
+              on_arm do
+                url "${BASE_URL}/tracer-darwin-arm64.tar.gz"
+                sha256 "${SHA_DARWIN_ARM64}"
+              end
+              on_intel do
+                url "${BASE_URL}/tracer-darwin-amd64.tar.gz"
+                sha256 "${SHA_DARWIN_AMD64}"
+              end
+            end
 
-            # Create a simple README for the DMG
-            cat > "$DMG_DIR/INSTALL.txt" << 'INSTALL'
-          To install tracer:
+            on_linux do
+              on_arm do
+                url "${BASE_URL}/tracer-linux-arm64.tar.gz"
+                sha256 "${SHA_LINUX_ARM64}"
+              end
+              on_intel do
+                url "${BASE_URL}/tracer-linux-amd64.tar.gz"
+                sha256 "${SHA_LINUX_AMD64}"
+              end
+            end
 
-            1. Copy "tracer" to /usr/local/bin or ~/.local/bin
-            2. Optionally copy "tracer.1" to ~/.local/share/man/man1/
+            def install
+              bin.install "tracer"
+              man1.install "tracer.1"
+            end
 
-          Or run:
-            cp tracer ~/.local/bin/ && chmod +x ~/.local/bin/tracer
-          INSTALL
+            test do
+              assert_match "tracer", shell_output("#{bin}/tracer --version")
+            end
+          end
+          FORMULA
 
-            hdiutil create -volname "tracer ${VERSION}" \
-              -srcfolder "$DMG_DIR" \
-              -ov -format UDZO \
-              "${DMG_NAME}.dmg"
-          done
-
-      - name: Upload DMGs to release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          VERSION=${{ needs.release.outputs.version }}
-          gh release upload "$VERSION" tracer-darwin-amd64.dmg tracer-darwin-arm64.dmg
+          # Push to homebrew-tap repo
+          git clone "https://x-access-token:${GH_TOKEN}@github.com/TheDokT0r/homebrew-tap.git" /tmp/homebrew-tap-update
+          cp /tmp/tracer.rb /tmp/homebrew-tap-update/Formula/tracer.rb
+          cd /tmp/homebrew-tap-update
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Formula/tracer.rb
+          git commit -m "Update tracer to ${VERSION}" || true
+          git push

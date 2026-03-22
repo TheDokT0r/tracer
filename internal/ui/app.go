@@ -322,7 +322,7 @@ func (a App) updateSkillDetail(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "e":
 			return a.editSkillFile()
 		case "d":
-			sk := a.skillsList.selectedSkill()
+			sk := a.currentSkill()
 			if sk != nil && !sk.ReadOnly {
 				if a.cfg.ConfirmDelete {
 					a.confirmDelete = true
@@ -596,8 +596,16 @@ func (a App) openSkillDetail() (tea.Model, tea.Cmd) {
 	return a, nil
 }
 
+func (a App) currentSkill() *skillspkg.Skill {
+	if a.view == viewSkillDetail {
+		sk := a.skillDetail.skill
+		return &sk
+	}
+	return a.skillsList.selectedSkill()
+}
+
 func (a App) editSkillFile() (tea.Model, tea.Cmd) {
-	sk := a.skillsList.selectedSkill()
+	sk := a.currentSkill()
 	if sk == nil || sk.ReadOnly {
 		return a, nil
 	}

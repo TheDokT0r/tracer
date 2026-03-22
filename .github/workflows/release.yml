@@ -62,8 +62,12 @@ jobs:
             fi
           done <<< "$COMMITS"
 
-          # Default to patch if there are commits but no conventional prefix
-          [ "$BUMP" = "none" ] && BUMP="patch"
+          # No feat/fix/breaking commits = no release
+          if [ "$BUMP" = "none" ]; then
+            echo "No release-worthy commits, skipping"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
 
           case "$BUMP" in
             major) MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;

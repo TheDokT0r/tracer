@@ -10,7 +10,14 @@ import (
 	"tracer/internal/ui"
 )
 
+var version = "dev"
+
 func main() {
+	if len(os.Args) > 1 && (os.Args[1] == "--version" || os.Args[1] == "-v") {
+		fmt.Println("tracer", version)
+		os.Exit(0)
+	}
+
 	home, err := os.UserHomeDir()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)

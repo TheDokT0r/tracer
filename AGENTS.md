@@ -44,7 +44,7 @@ tracer/
 │   │   ├── themepicker.go         # Interactive theme picker (tracer theme command)
 │   │   └── styles.go              # Default lipgloss styles (overwritten by ApplyTheme)
 │   └── updater/
-│       └── updater.go             # Self-updater with semver comparison, Homebrew detection
+│       └── updater.go             # Self-updater with semver comparison
 ├── .github/workflows/
 │   └── release.yml                # Auto-release on push to master (conventional commits)
 ```
@@ -145,7 +145,7 @@ Uses `pbcopy` on macOS. On Linux, tries `xclip -selection clipboard`, falls back
 
 ### Self-Updater
 
-Uses proper semver comparison (prevents downgrades). Detects Homebrew installs via binary path and redirects to `brew upgrade`. Auto-update is disabled for Homebrew installs and `dev` builds. The update check runs in a background goroutine during TUI use and applies after the user exits. Downloads are capped at 200MB via `io.LimitReader`.
+Uses proper semver comparison (prevents downgrades). Auto-update is disabled for `dev` builds. The update check runs in a background goroutine during TUI use and applies after the user exits. Downloads are capped at 200MB via `io.LimitReader`.
 
 ### Bubbletea v2 Specifics
 
@@ -289,16 +289,22 @@ Edit `tracer.1` (troff format). Embedded at build time — no extra steps needed
 ### Releasing a new version
 
 Releases are automatic. Pushing to `master` triggers `.github/workflows/release.yml`, which:
-1. Analyzes commit messages since the last tag
-2. Determines the version bump from conventional commit prefixes
-3. Builds binaries for macOS (Intel + Apple Silicon) and Linux (amd64 + arm64)
-4. Bundles man page in each `.tar.gz` archive
-5. Creates a git tag and GitHub release
-
+1. Uses `mathieudutour/github-tag-action` to determine the version bump from conventional commit prefixes
+2. Builds binaries for macOS (Intel + Apple Silicon) and Linux (amd64 + arm64)
+3. Bundles man page in each `.tar.gz` archive
+4. Creates a git tag and GitHub release
 **Version bump rules (from commit messages):**
 - `fix:` or `fix(scope):` → **patch** (v0.1.0 → v0.1.1)
 - `feat:` or `feat(scope):` → **minor** (v0.1.1 → v0.2.0)
 - `feat!:`, `fix!:`, or `BREAKING CHANGE` in body → **major** (v0.2.0 → v1.0.0)
 - Other prefixes (`docs:`, `ci:`, `chore:`, `refactor:`, `test:`) → no release
 
-To check the latest tag: `git describe --tags --abbrev=0`
+**To trigger the correct bump**, use the right prefix in your commit message:
+```
+fix: correct off-by-one in session list        # → patch release
+feat: add session export as markdown           # → minor release
+feat!: redesign config file format             # → major release
+```
+Only the commits since the last tag are analyzed. If multiple commits are pushed at once, the highest bump wins (e.g., one `feat:` + one `fix:` → minor).
+
+To check the latest tag: `git tag -l 'v*' --sort=-v:refname | head -n1`

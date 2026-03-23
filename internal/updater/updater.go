@@ -75,27 +75,8 @@ func parseSemver(v string) [3]int {
 	return parts
 }
 
-// IsHomebrew returns true if the binary is managed by Homebrew.
-func IsHomebrew() bool {
-	exe, err := os.Executable()
-	if err != nil {
-		return false
-	}
-	exe, err = filepath.EvalSymlinks(exe)
-	if err != nil {
-		return false
-	}
-	return strings.Contains(exe, "Cellar") || strings.Contains(exe, "homebrew")
-}
-
 // Update downloads the latest release and replaces the current binary.
 func Update(current string) error {
-	if IsHomebrew() {
-		fmt.Println("tracer was installed via Homebrew.")
-		fmt.Println("Run: brew upgrade tracer")
-		return nil
-	}
-
 	fmt.Println("Checking for updates...")
 
 	resp, err := http.Get(repoURL)

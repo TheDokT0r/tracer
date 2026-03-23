@@ -129,13 +129,12 @@ func main() {
 		ui.ApplyTheme(t)
 	}
 
-	// Auto-update check in background (skip for Homebrew installs)
 	type updateResult struct {
 		latest string
 		needed bool
 	}
 	updateCh := make(chan updateResult, 1)
-	if cfg.AutoUpdate && version != "dev" && !updater.IsHomebrew() {
+	if cfg.AutoUpdate && version != "dev" {
 		go func() {
 			latest, err := updater.Check()
 			if err == nil && updater.NeedsUpdate(version, latest) {

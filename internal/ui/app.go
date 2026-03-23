@@ -211,6 +211,14 @@ func openEditor(path string) tea.Cmd {
 	})
 }
 
+func replaceLastLine(content, replacement string) string {
+	lines := strings.Split(content, "\n")
+	if len(lines) > 0 {
+		lines[len(lines)-1] = replacement
+	}
+	return strings.Join(lines, "\n")
+}
+
 func (a *App) rescanSkills() {
 	skills, _ := skillspkg.ScanSkills(a.claudeDir)
 	a.skillsList.skills = skills
@@ -249,15 +257,15 @@ func (a App) View() tea.View {
 		}
 	}
 
-	// Inline prompts
+	// Inline prompts (replace the help bar to avoid overflowing the terminal)
 	if a.newSession {
-		content += "\n" + helpKeyStyle.Render("New session path: ") + a.newSessionDir.View()
+		content = replaceLastLine(content, helpKeyStyle.Render("New session path: ")+a.newSessionDir.View())
 	}
 	if a.newSkill {
-		content += "\n" + helpKeyStyle.Render("New skill name: ") + a.newSkillInput.View()
+		content = replaceLastLine(content, helpKeyStyle.Render("New skill name: ")+a.newSkillInput.View())
 	}
 	if a.renaming {
-		content += "\n" + helpKeyStyle.Render("Rename: ") + a.renameInput.View()
+		content = replaceLastLine(content, helpKeyStyle.Render("Rename: ")+a.renameInput.View())
 	}
 
 	// Delete confirmation (replaces help bar)
@@ -273,12 +281,8 @@ func (a App) View() tea.View {
 				name = sk.Name
 			}
 		}
-		lines := strings.Split(content, "\n")
-		if len(lines) > 0 {
-			lines[len(lines)-1] = deletePromptStyle.Render(
-				fmt.Sprintf("Delete \"%s\"? This cannot be undone. (y/N)", name))
-			content = strings.Join(lines, "\n")
-		}
+		content = replaceLastLine(content, deletePromptStyle.Render(
+			fmt.Sprintf("Delete \"%s\"? This cannot be undone. (y/N)", name)))
 	}
 
 	v := tea.NewView(content)

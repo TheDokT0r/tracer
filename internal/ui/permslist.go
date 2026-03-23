@@ -37,9 +37,11 @@ func newPermsListView(files []ccsettings.SettingsFile, width, height int) permsL
 }
 
 func (pv *permsListView) rebuildTable() {
-	scopeWidth := pv.width * 10 / 100
-	rulesWidth := pv.width * 15 / 100
-	pathWidth := pv.width - scopeWidth - rulesWidth
+	numCols := 3
+	cellPadding := 2 * numCols
+	scopeWidth := (pv.width - cellPadding) * 10 / 100
+	rulesWidth := (pv.width - cellPadding) * 15 / 100
+	pathWidth := pv.width - cellPadding - scopeWidth - rulesWidth
 
 	cols := []table.Column{
 		{Title: "Scope", Width: scopeWidth},

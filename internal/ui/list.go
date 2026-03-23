@@ -70,7 +70,21 @@ func (lv *listView) sortSessions() {
 
 func (lv *listView) rebuildTable() {
 	dateWidth := 18
-	remaining := lv.width
+
+	// Count visible columns to account for Cell padding (Padding(0,1) = 2 chars per column)
+	numCols := 1 // Name is always shown
+	if lv.cfg.ShowDate {
+		numCols++
+	}
+	if lv.cfg.ShowDirectory {
+		numCols++
+	}
+	if lv.cfg.ShowBranch {
+		numCols++
+	}
+	cellPadding := 2 * numCols
+
+	remaining := lv.width - cellPadding
 	if lv.cfg.ShowDate {
 		remaining -= dateWidth
 	}

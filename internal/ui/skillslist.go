@@ -37,9 +37,11 @@ func newSkillsListView(skills []skillspkg.Skill, width, height int) skillsListVi
 }
 
 func (sv *skillsListView) rebuildTable() {
-	nameWidth := sv.width * 40 / 100
-	sourceWidth := sv.width * 10 / 100
-	descWidth := sv.width - nameWidth - sourceWidth
+	numCols := 3
+	cellPadding := 2 * numCols
+	nameWidth := (sv.width - cellPadding) * 40 / 100
+	sourceWidth := (sv.width - cellPadding) * 10 / 100
+	descWidth := sv.width - cellPadding - nameWidth - sourceWidth
 
 	cols := []table.Column{
 		{Title: "Name", Width: nameWidth},

@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"strings"
 	"time"
+
+	"tracer/internal/model"
 )
 
 type Entry struct {
@@ -33,8 +35,28 @@ type Usage struct {
 }
 
 type ContentBlock struct {
-	Type string `json:"type"`
-	Text string `json:"text"`
+	Type    string `json:"type"`
+	Text    string `json:"text"`
+	Thinking string `json:"thinking"`
+}
+
+// RichContentBlock captures all content block types including images and tool use.
+type RichContentBlock struct {
+	Type      string          `json:"type"`
+	Text      string          `json:"text"`
+	Thinking  string          `json:"thinking"`
+	ID        string          `json:"id"`
+	Name      string          `json:"name"`
+	Input     json.RawMessage `json:"input"`
+	Content   json.RawMessage `json:"content"` // for tool_result
+	ToolUseID string          `json:"tool_use_id"`
+	Source    *ImageSource    `json:"source"`
+}
+
+type ImageSource struct {
+	Type      string `json:"type"`       // "base64"
+	MediaType string `json:"media_type"` // "image/png", etc.
+	Data      string `json:"data"`       // base64 encoded
 }
 
 func (e Entry) IsMessage() bool {
@@ -79,6 +101,110 @@ func (e Entry) MessageContent() string {
 		}
 	}
 	return ""
+}
+
+// RichContentBlocks parses the message content into typed blocks,
+// extracting images from tool_result nested content.
+func (e Entry) RichContentBlocks() []model.ContentBlock {
+	if e.Message.Content == nil {
+		return nil
+	}
+
+	// Try string content first
+	var s string
+	if err := json.Unmarshal(e.Message.Content, &s); err == nil {
+		if s != "" {
+			return []model.ContentBlock{{Type: "text", Text: s}}
+		}
+		return nil
+	}
+
+	// Parse as array of blocks
+	var blocks []RichContentBlock
+	if err := json.Unmarshal(e.Message.Content, &blocks); err != nil {
+		return nil
+	}
+
+	var result []model.ContentBlock
+	for _, b := range blocks {
+		switch b.Type {
+		case "text":
+			if b.Text != "" {
+				result = append(result, model.ContentBlock{Type: "text", Text: b.Text})
+			}
+		case "thinking":
+			if b.Thinking != "" {
+				result = append(result, model.ContentBlock{Type: "thinking", Text: b.Thinking})
+			}
+		case "image":
+			if b.Source != nil && b.Source.Data != "" {
+				result = append(result, model.ContentBlock{
+					Type:      "image",
+					MediaType: b.Source.MediaType,
+					Data:      b.Source.Data,
+				})
+			}
+		case "tool_use":
+			inputStr := ""
+			if b.Input != nil {
+				inputStr = string(b.Input)
+			}
+			result = append(result, model.ContentBlock{
+				Type:      "tool_use",
+				ToolName:  b.Name,
+				ToolInput: inputStr,
+			})
+		case "tool_result":
+			// Tool results can contain nested content with images
+			text := extractToolResultText(b.Content)
+			if text != "" {
+				result = append(result, model.ContentBlock{Type: "tool_result", Text: text, ToolName: b.ToolUseID})
+			}
+			// Extract nested images
+			extractToolResultImages(b.Content, &result)
+		}
+	}
+	return result
+}
+
+func extractToolResultText(raw json.RawMessage) string {
+	if raw == nil {
+		return ""
+	}
+	// Try as string
+	var s string
+	if err := json.Unmarshal(raw, &s); err == nil {
+		return s
+	}
+	// Try as array of blocks
+	var blocks []RichContentBlock
+	if err := json.Unmarshal(raw, &blocks); err == nil {
+		for _, b := range blocks {
+			if b.Type == "text" && b.Text != "" {
+				return b.Text
+			}
+		}
+	}
+	return ""
+}
+
+func extractToolResultImages(raw json.RawMessage, result *[]model.ContentBlock) {
+	if raw == nil {
+		return
+	}
+	var blocks []RichContentBlock
+	if err := json.Unmarshal(raw, &blocks); err != nil {
+		return
+	}
+	for _, b := range blocks {
+		if b.Type == "image" && b.Source != nil && b.Source.Data != "" {
+			*result = append(*result, model.ContentBlock{
+				Type:      "image",
+				MediaType: b.Source.MediaType,
+				Data:      b.Source.Data,
+			})
+		}
+	}
 }
 
 func parseLine(data []byte) (Entry, error) {

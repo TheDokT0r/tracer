@@ -283,6 +283,52 @@ func LoadConversation(claudeDir string, session model.Session) ([]model.Message,
 	return messages, nil
 }
 
+// LoadRichConversation reads a full JSONL file and returns messages with all
+// content blocks (text, images, tool use, tool results, thinking).
+func LoadRichConversation(claudeDir string, session model.Session) ([]model.RichMessage, error) {
+	path := filepath.Join(claudeDir, "projects", session.ProjectPath, session.ID+".jsonl")
+
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+	scanner.Buffer(make([]byte, maxLineBuffer), maxLineBuffer)
+
+	var messages []model.RichMessage
+
+	for scanner.Scan() {
+		line := scanner.Bytes()
+		if len(line) == 0 {
+			continue
+		}
+
+		e, err := parseLine(line)
+		if err != nil || !e.IsMessage() {
+			continue
+		}
+
+		blocks := e.RichContentBlocks()
+		if len(blocks) == 0 {
+			continue
+		}
+
+		messages = append(messages, model.RichMessage{
+			Role:      e.Type,
+			Blocks:    blocks,
+			Timestamp: e.Timestamp,
+		})
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+
+	return messages, nil
+}
+
 // truncateName trims content to maxLen chars and replaces newlines with spaces.
 func truncateName(s string, maxLen int) string {
 	s = strings.ReplaceAll(s, "\n", " ")

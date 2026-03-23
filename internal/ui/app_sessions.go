@@ -91,6 +91,9 @@ func (a App) updateSessionDetail(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if a.renaming {
 		return a.updateRename(msg)
 	}
+	if a.exportPicker {
+		return a.updateExportPicker(msg)
+	}
 
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
@@ -108,6 +111,9 @@ func (a App) updateSessionDetail(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a.startRename()
 		case "e":
 			return a.editSessionFile()
+		case "x":
+			a.exportPicker = true
+			return a, nil
 		case "d":
 			if a.cfg.ConfirmDelete {
 				a.confirmDelete = true
@@ -179,6 +185,60 @@ func (a App) copySessionID() (tea.Model, tea.Cmd) {
 	if s == nil {
 		return a, nil
 	}
+	copyToClipboard(s.ID)
+	return a, nil
+}
+
+func (a App) updateExportPicker(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyPressMsg:
+		switch msg.String() {
+		case "m":
+			a.exportPicker = false
+			return a.exportMarkdown()
+		case "h":
+			a.exportPicker = false
+			return a.exportHTML()
+		case "esc":
+			a.exportPicker = false
+			return a, nil
+		}
+	}
+	return a, nil
+}
+
+func (a App) exportMarkdown() (tea.Model, tea.Cmd) {
+	if len(a.detail.messages) == 0 {
+		a.statusMsg = "No messages to export"
+		return a, statusClearCmd()
+	}
+	path, err := claude.ExportMarkdown(a.detail.session, a.detail.messages)
+	if err != nil {
+		a.statusMsg = "Export failed: " + err.Error()
+		return a, statusClearCmd()
+	}
+	copyToClipboard(path)
+	a.statusMsg = "Exported to " + path + " (copied)"
+	return a, statusClearCmd()
+}
+
+func (a App) exportHTML() (tea.Model, tea.Cmd) {
+	messages, err := claude.LoadRichConversation(a.claudeDir, a.detail.session)
+	if err != nil || len(messages) == 0 {
+		a.statusMsg = "No messages to export"
+		return a, statusClearCmd()
+	}
+	path, err := claude.ExportHTML(a.detail.session, messages)
+	if err != nil {
+		a.statusMsg = "Export failed: " + err.Error()
+		return a, statusClearCmd()
+	}
+	copyToClipboard(path)
+	a.statusMsg = "Exported to " + path + " (copied)"
+	return a, statusClearCmd()
+}
+
+func copyToClipboard(text string) {
 	var clipCmd *exec.Cmd
 	switch runtime.GOOS {
 	case "darwin":
@@ -190,9 +250,8 @@ func (a App) copySessionID() (tea.Model, tea.Cmd) {
 			clipCmd = exec.Command("xsel", "--clipboard", "--input")
 		}
 	}
-	clipCmd.Stdin = strings.NewReader(s.ID)
+	clipCmd.Stdin = strings.NewReader(text)
 	clipCmd.Run()
-	return a, nil
 }
 
 func (a App) editSessionFile() (tea.Model, tea.Cmd) {

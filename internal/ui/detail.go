@@ -117,6 +117,7 @@ func (d detailView) view() string {
 		helpKeyStyle.Render("r") + helpDescStyle.Render(" rename") + sep +
 		helpKeyStyle.Render("e") + helpDescStyle.Render(" edit") + sep +
 		helpKeyStyle.Render("c") + helpDescStyle.Render(" copy") + sep +
+		helpKeyStyle.Render("x") + helpDescStyle.Render(" export") + sep +
 		helpKeyStyle.Render("d") + helpDescStyle.Render(" delete") + sep +
 		helpKeyStyle.Render("esc") + helpDescStyle.Render(" back")
 

@@ -1,6 +1,9 @@
 package model
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 // ContextWindows maps model ID prefixes to their max token counts.
 var ContextWindows = map[string]int{
@@ -39,6 +42,44 @@ type Message struct {
 	Role      string // "user" or "assistant"
 	Content   string
 	Timestamp time.Time
+}
+
+// ContentBlock represents a single content block in a rich message.
+type ContentBlock struct {
+	Type      string // "text", "image", "tool_use", "tool_result", "thinking"
+	Text      string // for text, thinking, tool_result blocks
+	MediaType string // for image blocks (e.g. "image/png")
+	Data      string // base64 data for image blocks
+	ToolName  string // for tool_use blocks
+	ToolInput string // for tool_use blocks (JSON string)
+}
+
+// RichMessage holds the full content blocks of a conversation entry.
+type RichMessage struct {
+	Role      string // "user" or "assistant"
+	Blocks    []ContentBlock
+	Timestamp time.Time
+}
+
+// Text returns the concatenated text content of all text blocks.
+func (m RichMessage) Text() string {
+	var parts []string
+	for _, b := range m.Blocks {
+		if b.Type == "text" && b.Text != "" {
+			parts = append(parts, b.Text)
+		}
+	}
+	return strings.Join(parts, "\n")
+}
+
+// HasImages returns true if the message contains any image blocks.
+func (m RichMessage) HasImages() bool {
+	for _, b := range m.Blocks {
+		if b.Type == "image" {
+			return true
+		}
+	}
+	return false
 }
 
 // MaxContextTokens returns the context window size for this session's model.

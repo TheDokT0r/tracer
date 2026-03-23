@@ -13,7 +13,8 @@ tracer/
 │   ├── claude/                     # Session data layer — reads/writes ~/.claude/
 │   │   ├── parser.go              # JSONL line parser (Entry, RawMsg, Usage, IsRealUserMessage)
 │   │   ├── sessions.go            # ScanSessions (parallel), scanSessionHead, LoadSessionDetails, LoadConversation, loadRenames
-│   │   └── delete.go              # DeleteSession — removes all session artifacts
+│   │   ├── delete.go              # DeleteSession — removes all session artifacts
+│   │   └── export.go              # ExportMarkdown — exports session conversation as Markdown
 │   ├── skills/                    # Skill data layer — scans and manages skills
 │   │   ├── model.go               # Skill struct, Source type (user, command, project, plugin)
 │   │   ├── scanner.go             # ScanSkills — scans 4 locations, parses YAML frontmatter
@@ -188,6 +189,7 @@ Uses proper semver comparison (prevents downgrades). Detects Homebrew installs v
 | `r` | — | Rename |
 | `e` | — | Edit in $EDITOR |
 | `c` | Copy session ID | Copy session ID |
+| `x` | — | Export as Markdown |
 | `p` | Pin/unpin | — |
 | `d` | Delete | Delete |
 | `s` | Settings | — |

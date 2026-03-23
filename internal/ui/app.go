@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
@@ -48,6 +49,8 @@ type App struct {
 	newSkill      bool
 	newSkillInput textinput.Model
 	confirmDelete bool
+	exportPicker  bool
+	statusMsg     string
 	width         int
 	height        int
 }
@@ -71,6 +74,9 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg.(type) {
 	case editorFinishedMsg:
 		return a.handleEditorFinished()
+	case statusClearMsg:
+		a.statusMsg = ""
+		return a, nil
 	}
 
 	switch msg := msg.(type) {
@@ -200,6 +206,14 @@ func (a *App) executeDelete() {
 
 type editorFinishedMsg struct{}
 
+type statusClearMsg struct{}
+
+func statusClearCmd() tea.Cmd {
+	return tea.Tick(3*time.Second, func(t time.Time) tea.Msg {
+		return statusClearMsg{}
+	})
+}
+
 func openEditor(path string) tea.Cmd {
 	editor := os.Getenv("EDITOR")
 	if editor == "" {
@@ -266,6 +280,22 @@ func (a App) View() tea.View {
 	}
 	if a.renaming {
 		content = replaceLastLine(content, helpKeyStyle.Render("Rename: ")+a.renameInput.View())
+	}
+
+	// Export format picker (replaces help bar)
+	if a.exportPicker {
+		content = replaceLastLine(content,
+			helpKeyStyle.Render("Export as: ")+
+				helpKeyStyle.Render("m")+helpDescStyle.Render("arkdown")+
+				helpSepStyle.Render(" • ")+
+				helpKeyStyle.Render("h")+helpDescStyle.Render("tml")+
+				helpSepStyle.Render(" • ")+
+				helpKeyStyle.Render("esc")+helpDescStyle.Render(" cancel"))
+	}
+
+	// Status message (replaces help bar)
+	if a.statusMsg != "" {
+		content = replaceLastLine(content, valueStyle.Render(a.statusMsg))
 	}
 
 	// Delete confirmation (replaces help bar)

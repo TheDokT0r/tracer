@@ -86,6 +86,7 @@ f	Fork session (new session ID, same conversation)
 r	Rename session
 e	Edit session file in $EDITOR
 c	Copy session ID to clipboard
+x	Export session as Markdown
 d	Delete session
 \(ua/\(da	Scroll conversation
 Esc	Back to list
@@ -212,6 +213,9 @@ Pinned session IDs.
 .TP
 .I ~/.config/tracer/renames.json
 Custom session names set from within tracer.
+.TP
+.I ~/.config/tracer/exports/
+Exported session Markdown files. Created by pressing \fBx\fR in the detail view.
 .TP
 .I ~/.claude/settings.json
 Global Claude Code permission settings (allow/deny rules). Managed via the Permissions tab.

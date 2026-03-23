@@ -69,6 +69,7 @@ p	Pin/unpin session to top
 d	Delete session
 s	Open settings
 /	Filter sessions
+:	Open command palette
 Tab	Switch to Skills tab
 Esc	Clear filter
 \(ua/\(da	Navigate
@@ -84,7 +85,8 @@ f	Fork session (new session ID, same conversation)
 r	Rename session
 e	Edit session file in $EDITOR
 c	Copy session ID to clipboard
-x	Export session as Markdown
+x	Export session as Markdown or HTML
+:	Open command palette
 d	Delete session
 \(ua/\(da	Scroll conversation
 Esc	Back to list
@@ -137,6 +139,39 @@ d	Delete rule
 \(ua/\(da	Navigate rules
 Esc	Back to permissions list
 .TE
+.SS Command Palette
+Press
+.B :
+in any view (except settings) to open the command palette.
+Type commands with arguments. An autocomplete dropdown appears above the input.
+.TS
+l l.
+Command	Description
+_
+:delete	Delete selected item
+:pin	Toggle pin on session
+:resume	Resume session
+:fork	Fork session
+:view	View item detail
+:copy	Copy session ID
+:new [path]	New session
+:new skill [name]	Create new skill
+:rename <name>	Rename session
+:edit	Edit in $EDITOR
+:export <html|md>	Export session
+:filter <query>	Filter current list
+:sort <field>	Sort sessions (date/name/directory)
+:set <key> <value>	Change a setting
+:theme <name>	Switch theme
+:settings	Open settings
+:tab <name>	Switch tab
+:quit	Quit
+:help [command]	Show help
+.TE
+.PP
+Commands are context-aware (only relevant commands appear).
+History persists across sessions in
+.IR ~/.config/tracer/history .
 .SS Settings View
 .TS
 l l.
@@ -177,6 +212,15 @@ When off, sessions are deleted immediately.
 .B Auto update
 When on, checks for updates in the background and installs after the TUI exits.
 Off by default.
+.TP
+.B Cmd dropdown
+Show autocomplete dropdown in the command palette. On by default.
+.TP
+.B Ghost suggest
+Show inline ghost text suggestion in the command palette. Off by default.
+.TP
+.B Max suggestions
+Maximum number of suggestions shown in the command palette dropdown (3\-12). Default 8.
 .SH DETAIL VIEW
 The detail view shows session metadata including:
 .IP \(bu 2
@@ -211,6 +255,9 @@ Pinned session IDs.
 .TP
 .I ~/.config/tracer/renames.json
 Custom session names set from within tracer.
+.TP
+.I ~/.config/tracer/history
+Command palette history. One command per line, max 100 entries.
 .TP
 .I ~/.config/tracer/exports/
 Exported session Markdown files. Created by pressing \fBx\fR in the detail view.

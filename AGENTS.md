@@ -14,7 +14,8 @@ tracer/
 │   │   ├── parser.go              # JSONL line parser (Entry, RawMsg, Usage, IsRealUserMessage)
 │   │   ├── sessions.go            # ScanSessions (parallel), scanSessionHead, LoadSessionDetails, LoadConversation, loadRenames
 │   │   ├── delete.go              # DeleteSession — removes all session artifacts
-│   │   └── export.go              # ExportMarkdown — exports session conversation as Markdown
+│   │   ├── export.go              # ExportMarkdown, ExportHTML — exports session as Markdown or HTML
+│   │   ├── markdown.go            # renderMarkdown — goldmark + chroma markdown-to-HTML pipeline
 │   ├── skills/                    # Skill data layer — scans and manages skills
 │   │   ├── model.go               # Skill struct, Source type (user, command, project, plugin)
 │   │   ├── scanner.go             # ScanSkills — scans 4 locations, parses YAML frontmatter
@@ -24,7 +25,8 @@ tracer/
 │   │   ├── model.go               # SettingsFile, Permissions, PermRule structs
 │   │   └── scanner.go             # ScanSettings, SavePermissions, AddRule, RemoveRule
 │   ├── config/
-│   │   ├── config.go              # Config struct (theme, sort, columns, confirm delete, auto update)
+│   │   ├── config.go              # Config struct (theme, sort, columns, confirm delete, auto update, cmd palette)
+│   │   ├── history.go             # Command history persistence (~/.config/tracer/history)
 │   │   ├── pins.go                # Pinned session IDs
 │   │   └── renames.go             # Custom session renames from tracer
 │   ├── model/
@@ -39,6 +41,9 @@ tracer/
 │   │   ├── permslist.go            # Permissions list — settings files table
 │   │   ├── permsdetail.go         # Permissions detail — rules table with add/toggle/delete
 │   │   ├── permsadd.go            # Add rule flow — multi-step inline prompt
+│   │   ├── command.go             # Command registry, parser, matcher (Command/CommandArg structs)
+│   │   ├── command_input.go       # Command input widget — dropdown, ghost text, history nav
+│   │   ├── command_run.go         # Built-in command Run functions and defaultRegistry()
 │   │   ├── settings.go            # Settings view + standalone SettingsApp
 │   │   ├── theme.go               # 11 theme definitions and ApplyTheme
 │   │   ├── themepicker.go         # Interactive theme picker (tracer theme command)
@@ -130,10 +135,14 @@ All settings in `~/.config/tracer/config.json`:
 | Show branch | `show_branch` | true/false | true |
 | Confirm delete | `confirm_delete` | true/false | true |
 | Auto update | `auto_update` | true/false | false |
+| Cmd dropdown | `cmd_dropdown` | true/false | true |
+| Ghost suggest | `cmd_ghost` | true/false | false |
+| Max suggestions | `cmd_max_suggestions` | 3–12 | 8 |
 
 Other config files:
 - `~/.config/tracer/pins.json` — pinned session IDs
 - `~/.config/tracer/renames.json` — custom session names
+- `~/.config/tracer/history` — command palette history (plain text, one per line)
 
 ### Themes
 
@@ -194,6 +203,7 @@ Uses proper semver comparison (prevents downgrades). Auto-update is disabled for
 | `d` | Delete | Delete |
 | `s` | Settings | — |
 | `/` | Filter | — |
+| `:` | Command palette | Command palette |
 | `Tab` | Switch to Skills | — |
 | `Esc` | Clear filter | Back to list |
 
@@ -220,6 +230,34 @@ Uses proper semver comparison (prevents downgrades). Auto-update is disabled for
 | `/` | Filter | — |
 | `Tab` | Next tab | — |
 | `Esc` | Clear filter | Back to list |
+
+#### Command Palette
+
+Press `:` in any view (except settings) to open the command palette. Type commands with arguments, with intellisense dropdown and optional ghost text.
+
+| Command | Args | Description |
+|---------|------|-------------|
+| `delete` | — | Delete selected item |
+| `pin` | — | Toggle pin on session |
+| `resume` | — | Resume selected session |
+| `fork` | — | Fork selected session |
+| `view` | — | View selected item detail |
+| `copy` | — | Copy session ID |
+| `new` | `[path]` | New session |
+| `new skill` | `[name]` | Create new skill |
+| `rename` | `<name>` | Rename session |
+| `edit` | — | Edit in $EDITOR |
+| `export` | `<format>` | Export session (html/md) |
+| `filter` | `<query>` | Filter current list |
+| `sort` | `<field>` | Sort sessions |
+| `set` | `<key> <value>` | Change a setting |
+| `theme` | `<name>` | Switch theme |
+| `settings` | — | Open settings |
+| `tab` | `<name>` | Switch tab |
+| `quit` | — | Quit |
+| `help` | `[command]` | Show help |
+
+Commands are context-aware (only available commands appear). Multi-word commands use longest-prefix matching. History persists across sessions.
 
 #### Settings / General
 
@@ -255,6 +293,11 @@ Tests cover: JSONL parsing, session scanning, session deletion, skill scanning, 
 ### Adding a new key binding
 1. Add the case in the relevant `update*()` method in `app.go`
 2. Update the help text in the relevant view's `view()` method
+
+### Adding a new command to the palette
+1. Add a `Command` entry in `defaultRegistry()` in `ui/command_run.go`
+2. Set `Name`, `Args` (with `Options` for completions), `Description`, `Contexts`, and `Run`
+3. The `Run` function receives `*App` and `[]string` args — call existing App methods
 
 ### Adding a new tab
 1. Add a `Tab` const in `tabs.go` and update `tabNames`

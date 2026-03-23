@@ -104,6 +104,20 @@ tracer theme
 
 Available: `default` `minimal` `mono` `ocean` `rose` `forest` `sunset` `nord` `dracula` `solarized` `monokai` `catppuccin`
 
+### Command Palette
+
+Press `:` in any view to open the command palette. Type commands with autocomplete:
+
+```
+:sort name          Sort sessions by name
+:set theme dracula  Switch theme
+:export html        Export session as HTML
+:filter react       Filter by "react"
+:help               List all commands
+```
+
+Dropdown suggestions appear above the input. Ghost text (dimmed inline suggestion) can be enabled in settings. Command history persists across sessions — use `Up/Down` to recall previous commands.
+
 ### Settings
 
 Press `s` or run `tracer settings`.
@@ -117,6 +131,9 @@ Press `s` or run `tracer settings`.
 | Show branch column | on |
 | Confirm before delete | on |
 | Auto-update | off |
+| Command dropdown | on |
+| Ghost suggestions | off |
+| Max suggestions | 8 |
 
 ## Commands
 

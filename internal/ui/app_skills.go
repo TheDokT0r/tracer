@@ -61,6 +61,10 @@ func (a App) updateSkillsList(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 			return a, nil
+		case ":":
+			if !a.anyModalActive() {
+				return a.enterCommandMode()
+			}
 		}
 	}
 
@@ -89,6 +93,8 @@ func (a App) updateSkillDetail(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 			return a, nil
+		case ":":
+			return a.enterCommandMode()
 		case "ctrl+c":
 			return a, tea.Quit
 		}
@@ -129,6 +135,14 @@ func (a App) editSkillFile() (tea.Model, tea.Cmd) {
 		return a, nil
 	}
 	return a, openEditor(sk.Path)
+}
+
+func (a App) createSkillDirect(name string) tea.Cmd {
+	path, err := skillspkg.CreateSkill(a.claudeDir, name, "")
+	if err != nil {
+		return nil
+	}
+	return openEditor(path)
 }
 
 func (a App) startNewSkill() (tea.Model, tea.Cmd) {

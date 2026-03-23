@@ -50,6 +50,10 @@ type App struct {
 	newSkillInput textinput.Model
 	confirmDelete bool
 	exportPicker  bool
+	commandMode   bool
+	cmdInput      commandInput
+	cmdRegistry   *registry
+	cmdHistory    []string
 	statusMsg     string
 	width         int
 	height        int
@@ -57,14 +61,16 @@ type App struct {
 
 func NewApp(claudeDir string, sessions []model.Session, pins map[string]bool, cfg config.Config, renames map[string]string, skills []skillspkg.Skill, settingsFiles []ccsettings.SettingsFile) App {
 	return App{
-		claudeDir:  claudeDir,
-		cfg:        cfg,
-		renames:    renames,
-		tab:        tabBar{active: TabSessions},
-		list:       newListView(sessions, pins, cfg, 80, 24),
-		skillsList: newSkillsListView(skills, 80, 24),
-		permsList:  newPermsListView(settingsFiles, 80, 24),
-		view:       viewList,
+		claudeDir:   claudeDir,
+		cfg:         cfg,
+		renames:     renames,
+		tab:         tabBar{active: TabSessions},
+		list:        newListView(sessions, pins, cfg, 80, 24),
+		skillsList:  newSkillsListView(skills, 80, 24),
+		permsList:   newPermsListView(settingsFiles, 80, 24),
+		view:        viewList,
+		cmdRegistry: defaultRegistry(),
+		cmdHistory:  config.LoadHistory(),
 	}
 }
 
@@ -82,6 +88,10 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		return a.handleResize(msg)
+	}
+
+	if a.commandMode {
+		return a.updateCommand(msg)
 	}
 
 	if a.confirmDelete {
@@ -202,6 +212,64 @@ func (a *App) executeDelete() {
 	}
 }
 
+// --- Command mode ---
+
+func (a *App) anyModalActive() bool {
+	return a.confirmDelete || a.exportPicker || a.renaming ||
+		a.newSession || a.newSkill || a.addRule.active ||
+		a.list.filtering || a.skillsList.filtering || a.permsList.filtering
+}
+
+func (a App) enterCommandMode() (tea.Model, tea.Cmd) {
+	a.commandMode = true
+	a.cmdInput = newCommandInput(&a, a.cmdRegistry, a.cfg, a.view, a.cmdHistory)
+	return a, nil
+}
+
+func (a App) updateCommand(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyPressMsg:
+		execute, cancel, value := a.cmdInput.update(msg)
+		if cancel {
+			a.commandMode = false
+			return a, nil
+		}
+		if execute {
+			a.commandMode = false
+			return a.executeCommand(value)
+		}
+	}
+	return a, nil
+}
+
+func (a App) executeCommand(input string) (tea.Model, tea.Cmd) {
+	input = strings.TrimSpace(input)
+	if input == "" {
+		return a, nil
+	}
+
+	cmd, args := a.cmdRegistry.resolve(input)
+	if cmd == nil {
+		a.statusMsg = "Unknown command: " + input
+		return a, statusClearCmd()
+	}
+
+	if !cmd.availableIn(a.view) {
+		a.statusMsg = "Command not available here: " + cmd.Name
+		return a, statusClearCmd()
+	}
+
+	result := cmd.Run(&a, args)
+
+	a.cmdHistory = config.AppendHistory(a.cmdHistory, input)
+	config.SaveHistory(a.cmdHistory)
+
+	if result != nil {
+		return a, result
+	}
+	return a, nil
+}
+
 // --- Shared helpers ---
 
 type editorFinishedMsg struct{}
@@ -291,6 +359,25 @@ func (a App) View() tea.View {
 				helpKeyStyle.Render("h")+helpDescStyle.Render("tml")+
 				helpSepStyle.Render(" • ")+
 				helpKeyStyle.Render("esc")+helpDescStyle.Render(" cancel"))
+	}
+
+	// Command palette (replaces help bar + dropdown above)
+	if a.commandMode {
+		dropdown := a.cmdInput.viewDropdown(a.width)
+		inputLine := a.cmdInput.viewInput()
+		if dropdown != "" {
+			lines := strings.Split(content, "\n")
+			dropLines := strings.Split(dropdown, "\n")
+			needed := len(dropLines) + 1
+			if len(lines) >= needed {
+				lines = lines[:len(lines)-needed]
+			}
+			lines = append(lines, dropLines...)
+			lines = append(lines, inputLine)
+			content = strings.Join(lines, "\n")
+		} else {
+			content = replaceLastLine(content, inputLine)
+		}
 	}
 
 	// Status message (replaces help bar)

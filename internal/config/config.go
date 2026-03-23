@@ -20,23 +20,28 @@ func init() {
 }
 
 type Config struct {
-	Theme         string `json:"theme"`
-	SortBy        string `json:"sort_by"`         // "date", "name", "directory"
-	ShowDate      bool   `json:"show_date"`
-	ShowDirectory bool   `json:"show_directory"`
-	ShowBranch    bool   `json:"show_branch"`
-	ConfirmDelete bool   `json:"confirm_delete"`
-	AutoUpdate    bool   `json:"auto_update"`
+	Theme             string `json:"theme"`
+	SortBy            string `json:"sort_by"`         // "date", "name", "directory"
+	ShowDate          bool   `json:"show_date"`
+	ShowDirectory     bool   `json:"show_directory"`
+	ShowBranch        bool   `json:"show_branch"`
+	ConfirmDelete     bool   `json:"confirm_delete"`
+	AutoUpdate        bool   `json:"auto_update"`
+	CmdDropdown       bool   `json:"cmd_dropdown"`
+	CmdGhost          bool   `json:"cmd_ghost"`
+	CmdMaxSuggestions int    `json:"cmd_max_suggestions"`
 }
 
 func DefaultConfig() Config {
 	return Config{
-		Theme:         "default",
-		SortBy:        "date",
-		ShowDate:      true,
-		ShowDirectory: true,
-		ShowBranch:    true,
-		ConfirmDelete: true,
+		Theme:             "default",
+		SortBy:            "date",
+		ShowDate:          true,
+		ShowDirectory:     true,
+		ShowBranch:        true,
+		ConfirmDelete:     true,
+		CmdDropdown:       true,
+		CmdMaxSuggestions: 8,
 	}
 }
 
@@ -54,6 +59,9 @@ func LoadConfig() Config {
 	}
 	if c.SortBy == "" {
 		c.SortBy = "date"
+	}
+	if c.CmdMaxSuggestions < 3 || c.CmdMaxSuggestions > 12 {
+		c.CmdMaxSuggestions = 8
 	}
 	return c
 }

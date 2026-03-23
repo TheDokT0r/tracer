@@ -79,6 +79,10 @@ func (a App) updateSessionList(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 			return a, nil
+		case ":":
+			if !a.anyModalActive() {
+				return a.enterCommandMode()
+			}
 		}
 	}
 
@@ -125,6 +129,8 @@ func (a App) updateSessionDetail(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 			return a, nil
+		case ":":
+			return a.enterCommandMode()
 		case "ctrl+c":
 			return a, tea.Quit
 		}
@@ -252,6 +258,16 @@ func copyToClipboard(text string) {
 	}
 	clipCmd.Stdin = strings.NewReader(text)
 	clipCmd.Run()
+}
+
+func (a App) startSessionInDir(dir string) (tea.Model, tea.Cmd) {
+	claudeBin, err := exec.LookPath("claude")
+	if err != nil {
+		return a, nil
+	}
+	c := exec.Command(claudeBin)
+	c.Dir = dir
+	return a, tea.ExecProcess(c, func(err error) tea.Msg { return tea.Quit() })
 }
 
 func (a App) editSessionFile() (tea.Model, tea.Cmd) {

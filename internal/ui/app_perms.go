@@ -43,6 +43,10 @@ func (a App) updatePermsList(msg tea.Msg) (tea.Model, tea.Cmd) {
 				a.view = viewPermsDetail
 			}
 			return a, nil
+		case ":":
+			if !a.anyModalActive() {
+				return a.enterCommandMode()
+			}
 		}
 	}
 
@@ -77,6 +81,10 @@ func (a App) updatePermsDetail(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "d":
 			a.permsDetail.deleteSelected()
 			return a, nil
+		case ":":
+			if !a.addRule.active {
+				return a.enterCommandMode()
+			}
 		case "ctrl+c":
 			return a, tea.Quit
 		}

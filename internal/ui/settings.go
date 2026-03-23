@@ -18,6 +18,9 @@ const (
 	settingShowBranch
 	settingConfirmDelete
 	settingAutoUpdate
+	settingCmdDropdown
+	settingCmdGhost
+	settingCmdMaxSuggestions
 	settingCount
 )
 
@@ -66,6 +69,15 @@ func (sv *settingsView) cycleRight() {
 		sv.cfg.ConfirmDelete = !sv.cfg.ConfirmDelete
 	case settingAutoUpdate:
 		sv.cfg.AutoUpdate = !sv.cfg.AutoUpdate
+	case settingCmdDropdown:
+		sv.cfg.CmdDropdown = !sv.cfg.CmdDropdown
+	case settingCmdGhost:
+		sv.cfg.CmdGhost = !sv.cfg.CmdGhost
+	case settingCmdMaxSuggestions:
+		sv.cfg.CmdMaxSuggestions++
+		if sv.cfg.CmdMaxSuggestions > 12 {
+			sv.cfg.CmdMaxSuggestions = 3
+		}
 	}
 }
 
@@ -96,8 +108,13 @@ func (sv *settingsView) cycleLeft() {
 				break
 			}
 		}
-	case settingShowDate, settingShowDirectory, settingShowBranch, settingConfirmDelete, settingAutoUpdate:
+	case settingShowDate, settingShowDirectory, settingShowBranch, settingConfirmDelete, settingAutoUpdate, settingCmdDropdown, settingCmdGhost:
 		sv.cycleRight() // toggle is the same both ways
+	case settingCmdMaxSuggestions:
+		sv.cfg.CmdMaxSuggestions--
+		if sv.cfg.CmdMaxSuggestions < 3 {
+			sv.cfg.CmdMaxSuggestions = 12
+		}
 	}
 }
 
@@ -107,20 +124,32 @@ func (sv settingsView) view() string {
 	b.WriteString(titleStyle.Render("settings"))
 	b.WriteString("\n\n")
 
-	items := []struct {
-		label string
-		value string
-	}{
-		{"Theme", sv.cfg.Theme},
-		{"Sort by", sv.cfg.SortBy},
-		{"Show date", boolDisplay(sv.cfg.ShowDate)},
-		{"Show directory", boolDisplay(sv.cfg.ShowDirectory)},
-		{"Show branch", boolDisplay(sv.cfg.ShowBranch)},
-		{"Confirm delete", boolDisplay(sv.cfg.ConfirmDelete)},
-		{"Auto update", boolDisplay(sv.cfg.AutoUpdate)},
+	type settingItem struct {
+		label   string
+		value   string
+		section string // non-empty = render section header before this item
+	}
+
+	items := []settingItem{
+		{label: "Theme", value: sv.cfg.Theme},
+		{label: "Sort by", value: sv.cfg.SortBy},
+		{label: "Show date", value: boolDisplay(sv.cfg.ShowDate)},
+		{label: "Show directory", value: boolDisplay(sv.cfg.ShowDirectory)},
+		{label: "Show branch", value: boolDisplay(sv.cfg.ShowBranch)},
+		{label: "Confirm delete", value: boolDisplay(sv.cfg.ConfirmDelete)},
+		{label: "Auto update", value: boolDisplay(sv.cfg.AutoUpdate)},
+		{label: "Cmd dropdown", value: boolDisplay(sv.cfg.CmdDropdown), section: "Command Palette"},
+		{label: "Ghost suggest", value: boolDisplay(sv.cfg.CmdGhost)},
+		{label: "Max suggestions", value: fmt.Sprintf("%d", sv.cfg.CmdMaxSuggestions)},
 	}
 
 	for i, item := range items {
+		if item.section != "" {
+			b.WriteString("\n")
+			b.WriteString(dimmedStyle.Render("  ── " + item.section + " ──"))
+			b.WriteString("\n")
+		}
+
 		cursor := "  "
 		if i == sv.cursor {
 			cursor = "> "

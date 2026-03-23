@@ -158,7 +158,7 @@ func scanSessionHead(path string) (model.Session, error) {
 		if sess.Directory == "" && e.CWD != "" {
 			sess.Directory = e.CWD
 		}
-		if sess.Branch == "" && e.GitBranch != "" {
+		if sess.Branch == "" && e.GitBranch != "" && e.GitBranch != "HEAD" {
 			sess.Branch = e.GitBranch
 		}
 		if sess.StartedAt.IsZero() && !e.Timestamp.IsZero() {

@@ -57,14 +57,13 @@ func ExportHTML(session model.Session, messages []model.RichMessage) (string, er
 <body>
 `)
 
-	// Sticky header with metadata
-	b.WriteString(`<div class="header"><div class="header-inner">`)
+	// Chat area with inline header
+	b.WriteString(`<div class="chat">`)
+	b.WriteString(`<div class="chat-header">`)
 	b.WriteString(`<h1>` + title + `</h1>`)
 	writeHTMLMetadata(&b, session)
-	b.WriteString(`</div></div>`)
+	b.WriteString(`</div>`)
 
-	// Chat area
-	b.WriteString(`<div class="chat">`)
 	for i, msg := range messages {
 		writeHTMLMessage(&b, msg, i)
 	}
@@ -123,31 +122,18 @@ func writeHTMLMetadata(b *strings.Builder, s model.Session) {
 const collapseThreshold = 2000 // characters
 
 func writeHTMLMessage(b *strings.Builder, msg model.RichMessage, index int) {
-	role := "user"
-	name := "You"
-	avatarClass := "avatar-user"
-	avatarContent := userInitial
-	if msg.Role == "assistant" {
-		role = "assistant"
-		name = "Claude"
-		avatarClass = "avatar-claude"
-		avatarContent = claudeSVG
+	role := msg.Role
+	if role == "" {
+		role = "user"
 	}
 
 	fullText := msg.Text()
 	needsCollapse := len([]rune(fullText)) > collapseThreshold
 
 	b.WriteString(fmt.Sprintf(`<div class="msg %s">`, role))
+	b.WriteString(`<div class="bubble">`)
 
-	// Name row: avatar + name + timestamp
-	b.WriteString(`<div class="msg-name"><div class="` + avatarClass + `">` + avatarContent + `</div>`)
-	b.WriteString(`<span class="name">` + name + `</span>`)
-	if !msg.Timestamp.IsZero() {
-		b.WriteString(fmt.Sprintf(`<span class="ts">%s</span>`, msg.Timestamp.Format("15:04")))
-	}
-	b.WriteString(`</div>`)
-
-	// Content
+	// Content wrapper
 	if needsCollapse {
 		b.WriteString(fmt.Sprintf(`<div class="msg-content collapsible" id="msg-%d">`, index))
 	} else {
@@ -157,7 +143,11 @@ func writeHTMLMessage(b *strings.Builder, msg model.RichMessage, index int) {
 	for _, block := range msg.Blocks {
 		switch block.Type {
 		case "text":
-			b.WriteString(`<div class="text-block">` + html.EscapeString(block.Text) + `</div>`)
+			if role == "assistant" {
+				b.WriteString(`<div class="text-block">` + renderMarkdown(block.Text) + `</div>`)
+			} else {
+				b.WriteString(`<div class="text-block user-text">` + html.EscapeString(block.Text) + `</div>`)
+			}
 		case "image":
 			if block.Data != "" {
 				mediaType := block.MediaType
@@ -187,12 +177,14 @@ func writeHTMLMessage(b *strings.Builder, msg model.RichMessage, index int) {
 		b.WriteString(fmt.Sprintf(`<button class="show-more" onclick="toggleCollapse('msg-%d', this)">Show more</button>`, index))
 	}
 
+	// Timestamp
+	if !msg.Timestamp.IsZero() {
+		b.WriteString(fmt.Sprintf(`<div class="ts">%s</div>`, msg.Timestamp.Format("15:04")))
+	}
+
+	b.WriteString(`</div>`) // bubble
 	b.WriteString(`</div>`) // msg
 }
-
-const claudeSVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M16.862 11.487l-4.235-8.136a.667.667 0 0 0-1.254 0L7.138 11.487a.667.667 0 0 0 .362.893l4.167 1.632a.667.667 0 0 0 .666 0l4.167-1.632a.667.667 0 0 0 .362-.893z" fill="currentColor"/><path d="M13.87 16.394l-1.535-.601a.667.667 0 0 0-.67 0l-1.535.601a.667.667 0 0 0-.362.893l1.535 3.577a.667.667 0 0 0 1.254 0l1.535-3.577a.667.667 0 0 0-.222-.893z" fill="currentColor"/></svg>`
-
-const userInitial = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`
 
 func writeExportFile(session model.Session, content, ext string) (string, error) {
 	configDir, err := os.UserConfigDir()
@@ -236,105 +228,77 @@ const htmlCSS = `
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-    font-family: "Söhne", -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", sans-serif;
-    line-height: 1.7;
-    color: #ececec;
-    background: #2b2b2b;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", sans-serif;
+    line-height: 1.6;
+    color: #d4d4d4;
+    background: #0b141a;
     -webkit-font-smoothing: antialiased;
 }
 
-/* ---- Sticky header ---- */
-.header {
-    background: rgba(43,43,43,0.85);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border-bottom: 1px solid rgba(255,255,255,0.06);
-    padding: 0.9rem 0;
-    position: sticky;
-    top: 0;
-    z-index: 100;
+/* ---- Chat container ---- */
+.chat {
+    max-width: 100%;
+    padding: 1rem 4% 5rem;
 }
-.header-inner { max-width: 680px; margin: 0 auto; padding: 0 1.5rem; }
-.header h1 {
-    font-size: 0.95rem;
+
+/* ---- Chat header ---- */
+.chat-header {
+    text-align: center;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+}
+.chat-header h1 {
+    font-size: 1rem;
     font-weight: 500;
     color: #e8e8e8;
-    letter-spacing: -0.01em;
 }
 .meta-row {
     display: flex;
     flex-wrap: wrap;
+    justify-content: center;
     gap: 0.15rem 0.6rem;
-    font-size: 0.72rem;
-    color: #888;
+    font-size: 0.7rem;
+    color: #667781;
     margin-top: 0.3rem;
 }
 .meta-row span { white-space: nowrap; }
 
-/* ---- Chat container ---- */
-.chat {
-    max-width: 680px;
-    margin: 0 auto;
-    padding: 0.5rem 1.5rem 5rem;
-}
-
-/* ---- Single message ---- */
-.msg { padding: 1.5rem 0; }
-.msg + .msg { border-top: 1px solid rgba(255,255,255,0.04); }
-
-/* User messages: rounded panel like claude.ai */
-.msg.user .msg-content {
-    background: #303030;
-    border-radius: 1.25rem;
-    padding: 0.9rem 1.15rem;
-    margin-top: 0.4rem;
-}
-
-/* Claude messages: no panel, just text */
-.msg.assistant .msg-content {
-    margin-top: 0.4rem;
-}
-
-/* ---- Name row ---- */
-.msg-name {
+/* ---- Message row ---- */
+.msg {
     display: flex;
-    align-items: center;
-    gap: 0.5rem;
+    padding: 0.15rem 0;
 }
-.name {
-    font-size: 0.82rem;
-    font-weight: 600;
-    color: #e8e8e8;
+.msg.user { justify-content: flex-end; }
+.msg.assistant { justify-content: flex-start; }
+
+/* ---- Bubble ---- */
+.bubble {
+    max-width: 75%;
+    padding: 0.5rem 0.75rem;
+    border-radius: 12px;
+    position: relative;
 }
+.msg.user .bubble {
+    background: #005c4b;
+    border-top-right-radius: 4px;
+}
+.msg.assistant .bubble {
+    background: #202c33;
+    border-top-left-radius: 4px;
+}
+
+/* ---- Timestamp inside bubble ---- */
 .ts {
-    font-size: 0.7rem;
-    color: #666;
-    margin-left: auto;
-}
-
-/* ---- Avatars ---- */
-.avatar-claude, .avatar-user {
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-}
-.avatar-claude {
-    background: #d97757;
-    color: #fff;
-}
-.avatar-user {
-    background: #6b7280;
-    color: #fff;
+    font-size: 0.65rem;
+    color: rgba(255,255,255,0.45);
+    text-align: right;
+    margin-top: 0.25rem;
 }
 
 /* ---- Content / Collapse ---- */
 .msg-content { position: relative; }
 .msg-content.collapsible {
-    max-height: 420px;
+    max-height: 600px;
     overflow: hidden;
 }
 .msg-content.collapsible::after {
@@ -344,92 +308,210 @@ body {
     height: 90px;
     pointer-events: none;
 }
-/* Gradient matches the background behind each role */
 .msg.user .msg-content.collapsible::after {
-    background: linear-gradient(transparent, #303030);
-    border-radius: 0 0 1.25rem 1.25rem;
+    background: linear-gradient(transparent, #005c4b);
 }
 .msg.assistant .msg-content.collapsible::after {
-    background: linear-gradient(transparent, #2b2b2b);
+    background: linear-gradient(transparent, #202c33);
 }
 .msg-content.expanded { max-height: none; }
 .msg-content.expanded::after { display: none; }
 
 .show-more {
     display: inline-block;
-    margin-top: 0.6rem;
+    margin-top: 0.4rem;
     background: none;
-    border: 1px solid #444;
+    border: 1px solid rgba(255,255,255,0.2);
     border-radius: 9999px;
     color: #aaa;
     cursor: pointer;
-    font-size: 0.75rem;
-    padding: 0.25rem 1rem;
+    font-size: 0.7rem;
+    padding: 0.2rem 0.8rem;
     transition: all 0.15s;
 }
-.show-more:hover { border-color: #666; color: #ddd; }
+.show-more:hover { border-color: rgba(255,255,255,0.4); color: #ddd; }
 
-/* ---- Text ---- */
+/* ---- Text blocks ---- */
 .text-block {
+    font-size: 0.9rem;
+    line-height: 1.55;
+    color: #e4e6eb;
+}
+.text-block.user-text {
     white-space: pre-wrap;
     word-wrap: break-word;
-    font-size: 0.925rem;
-    line-height: 1.7;
-    color: #e8e8e8;
 }
 
-/* ---- Images ---- */
-.img-block { margin: 0.75rem 0; }
+/* ---- Markdown elements ---- */
+.text-block p { margin: 0.5em 0; }
+.text-block p:first-child { margin-top: 0; }
+.text-block p:last-child { margin-bottom: 0; }
+
+.text-block h1, .text-block h2, .text-block h3,
+.text-block h4, .text-block h5, .text-block h6 {
+    color: #e8e8e8;
+    margin: 1em 0 0.3em;
+    line-height: 1.3;
+}
+.text-block h1 { font-size: 1.25em; font-weight: 700; }
+.text-block h2 { font-size: 1.12em; font-weight: 700; }
+.text-block h3 { font-size: 1em; font-weight: 600; }
+.text-block h4, .text-block h5, .text-block h6 { font-size: 0.95em; font-weight: 600; }
+
+.text-block strong { font-weight: 600; color: #e8e8e8; }
+
+.text-block a { color: #53bdeb; text-decoration: none; }
+.text-block a:hover { text-decoration: underline; }
+
+.text-block code {
+    background: rgba(255,255,255,0.08);
+    padding: 0.12em 0.3em;
+    border-radius: 4px;
+    font-size: 0.85em;
+    font-family: "SF Mono", "Fira Code", Menlo, monospace;
+    color: #e0e0e0;
+}
+
+/* ---- Code blocks with copy button ---- */
+.code-wrapper {
+    position: relative;
+    margin: 0.6em 0;
+}
+.copy-btn {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    background: rgba(255,255,255,0.1);
+    border: none;
+    border-radius: 6px;
+    color: #aaa;
+    cursor: pointer;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.7rem;
+    font-family: inherit;
+    transition: all 0.15s;
+    z-index: 1;
+}
+.copy-btn:hover { background: rgba(255,255,255,0.2); color: #fff; }
+.copy-btn.copied { color: #4ade80; }
+
+.text-block pre {
+    background: #0d1117;
+    border-radius: 10px;
+    padding: 1em 1.2em;
+    padding-top: 2.2em;
+    overflow-x: auto;
+    margin: 0;
+    line-height: 1.5;
+    font-size: 0.82em;
+    font-family: "SF Mono", "Fira Code", Menlo, monospace;
+}
+.text-block pre code {
+    background: none;
+    padding: 0;
+    border-radius: 0;
+    font-size: inherit;
+    color: inherit;
+}
+
+.text-block blockquote {
+    border-left: 3px solid #3b4a54;
+    padding-left: 0.8em;
+    color: #8696a0;
+    margin: 0.5em 0;
+}
+
+.text-block ul, .text-block ol {
+    padding-left: 1.4em;
+    margin: 0.4em 0;
+}
+.text-block li { margin: 0.15em 0; }
+
+.text-block table {
+    border-collapse: collapse;
+    margin: 0.6em 0;
+    font-size: 0.88em;
+    width: auto;
+}
+.text-block th, .text-block td {
+    padding: 0.4em 0.8em;
+    text-align: left;
+}
+.text-block th {
+    font-weight: 600;
+    color: #e0e0e0;
+    border-bottom: 2px solid #3b4a54;
+}
+.text-block td {
+    border-bottom: 1px solid #2a3942;
+}
+
+.text-block hr {
+    border: none;
+    border-top: 1px solid #2a3942;
+    margin: 1em 0;
+}
+
+.text-block img {
+    max-width: 100%;
+    border-radius: 8px;
+}
+
+/* ---- Images (base64 embedded) ---- */
+.img-block { margin: 0.5rem 0; }
 .img-block img {
     max-width: 100%;
     max-height: 500px;
-    border-radius: 12px;
+    border-radius: 10px;
 }
 
 /* ---- Details (thinking, tools) ---- */
 .detail-block {
-    margin: 0.6rem 0;
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 12px;
+    margin: 0.4rem 0;
+    background: rgba(0,0,0,0.2);
+    border-radius: 8px;
     overflow: hidden;
 }
 .detail-block summary {
-    padding: 0.5rem 0.9rem;
+    padding: 0.4rem 0.7rem;
     cursor: pointer;
-    color: #999;
     font-size: 0.78rem;
     user-select: none;
     list-style: none;
     display: flex;
     align-items: center;
     gap: 0.35rem;
+    color: #8696a0;
 }
 .detail-block summary::-webkit-details-marker { display: none; }
 .detail-block summary::before {
-    content: "▸";
-    font-size: 0.7rem;
+    content: "›";
+    font-size: 0.85rem;
+    font-weight: 600;
     transition: transform 0.15s;
+    display: inline-block;
 }
 .detail-block[open] summary::before { transform: rotate(90deg); }
-.detail-block summary:hover { color: #ccc; }
+.detail-block summary:hover { color: #aebac1; }
 .detail-block pre {
     margin: 0;
-    padding: 0.75rem 0.9rem;
-    font-size: 0.78rem;
-    font-family: "SF Mono", "Fira Code", "JetBrains Mono", Menlo, monospace;
+    padding: 0.6rem 0.7rem;
+    font-size: 0.75rem;
+    font-family: "SF Mono", "Fira Code", Menlo, monospace;
     overflow-x: auto;
     white-space: pre-wrap;
     word-wrap: break-word;
-    color: #aaa;
+    color: #8696a0;
     background: rgba(0,0,0,0.15);
-    line-height: 1.55;
+    line-height: 1.5;
 }
 .thinking summary { color: #d4a253; }
-.tool-use summary { color: #6cc070; }
-.tool-result summary { color: #6ba3d6; }
+.tool-use summary { color: #8bc38e; }
+.tool-result summary { color: #53bdeb; }
 
 @media (max-width: 640px) {
-    .header-inner, .chat { padding-left: 1rem; padding-right: 1rem; }
+    .chat { padding-left: 2%; padding-right: 2%; }
+    .bubble { max-width: 90%; }
 }
 `
 
@@ -439,4 +521,31 @@ function toggleCollapse(id, btn) {
     el.classList.toggle("expanded");
     btn.textContent = el.classList.contains("expanded") ? "Show less" : "Show more";
 }
+
+function copyCode(btn) {
+    var pre = btn.parentElement.querySelector("pre");
+    var code = pre.textContent;
+    navigator.clipboard.writeText(code).then(function() {
+        btn.textContent = "Copied!";
+        btn.classList.add("copied");
+        setTimeout(function() {
+            btn.textContent = "Copy";
+            btn.classList.remove("copied");
+        }, 2000);
+    });
+}
+
+document.addEventListener("DOMContentLoaded", function() {
+    document.querySelectorAll(".text-block pre").forEach(function(pre) {
+        var wrapper = document.createElement("div");
+        wrapper.className = "code-wrapper";
+        pre.parentNode.insertBefore(wrapper, pre);
+        wrapper.appendChild(pre);
+        var btn = document.createElement("button");
+        btn.className = "copy-btn";
+        btn.textContent = "Copy";
+        btn.onclick = function() { copyCode(btn); };
+        wrapper.appendChild(btn);
+    });
+});
 `

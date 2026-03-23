@@ -83,14 +83,15 @@ The release workflow inspects non-merge commit messages (`git log --no-merges`).
 | 🚚 | `refactor` | Moving or renaming files |
 | 🎉 | `feat` | Initial commit |
 
-## Pre-Commit Checklist
+## Pre-Commit: Update Documentation First
 
-Before committing, check if the change requires doc updates (see `updating-docs` skill):
-- **AGENTS.md** — project structure, conventions, architecture
-- **README.md** — user-facing features, settings, usage
-- **tracer.1** — man page, CLI flags, feature descriptions
+**Before creating any commit, invoke `/updating-docs` using the Skill tool.** This ensures AGENTS.md, README.md, and tracer.1 are reviewed and updated as part of the same commit — not as an afterthought.
 
-Documentation updates go in the **same commit** as the code, not a separate docs commit.
+Steps:
+1. **Invoke `/updating-docs`** via the Skill tool before staging or committing anything.
+2. Wait for the skill to complete — it will check and update the three doc files as needed.
+3. Stage any doc changes together with the code changes.
+4. Then proceed with the commit.
 
 ## Rules
 

@@ -38,11 +38,28 @@ Review each file and update **only the sections affected** by the change:
 
 ## Process
 
-1. Read the three files to understand their current state.
-2. Compare against the changes just made.
-3. Identify which sections need updates (many changes won't require any updates).
-4. Make targeted edits — do not rewrite unchanged sections.
-5. If no updates are needed, say so and move on.
+### Step 1: Determine what changed
+
+Run `git diff` (staged + unstaged) to get the full picture of code changes. Understand what was added, modified, or removed.
+
+### Step 2: Triage — do docs need updating?
+
+Read AGENTS.md, README.md, and tracer.1. For each file, ask:
+- Is there anything in the current changes that is **not already documented** or that **contradicts** what's documented?
+- Would a user or contributor be misled by the current docs after this change lands?
+
+If the answer is **no** for all three files — **skip updates entirely** and say "No doc updates needed" with a one-line reason why.
+
+Most changes do NOT need doc updates. Examples that don't:
+- Bug fixes that don't change documented behavior
+- Internal refactors (renaming private functions, restructuring internals)
+- Test additions or changes
+- Performance improvements with no user-facing difference
+- Code style or linting changes
+
+### Step 3: Update only what's stale
+
+If updates are needed, make targeted edits to only the sections that are now inaccurate or incomplete. Do not rewrite unchanged sections.
 
 ## Rules
 

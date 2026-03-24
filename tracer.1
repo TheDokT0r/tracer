@@ -167,11 +167,51 @@ _
 :tab <name>	Switch tab
 :quit	Quit
 :help [command]	Show help
+:commands <sub> [name]	Manage user commands (list/new/new-ai/edit/delete)
+:columns <sub> [name]	Manage custom columns (list/new/new-ai/edit/delete/toggle)
 .TE
 .PP
 Commands are context-aware (only relevant commands appear).
 History persists across sessions in
 .IR ~/.config/tracer/history .
+User-defined commands from
+.I ~/.config/tracer/commands/
+are loaded at startup and appear in the palette.
+.SS User-Defined Commands
+Each command is a directory in
+.IR ~/.config/tracer/commands/<name>/ .
+It must contain a
+.B command.json
+with at minimum a
+.B description
+and either an
+.B alias
+(string mapping to another command) or
+.B shell
+(script filename to execute).
+Shell commands have a
+.B mode
+of either "status" (output in status bar) or "exec" (full terminal handoff).
+Use
+.B :commands new-ai <name>
+to create a command interactively with Claude.
+.SS Custom Columns
+Each column is a directory in
+.IR ~/.config/tracer/columns/<name>/ .
+It must contain a
+.B column.json
+with
+.BR header ,
+.BR shell ,
+and optionally
+.B width
+and
+.BR timeout .
+The script receives the session directory as $1 and outputs one line (the cell value).
+Columns populate asynchronously; cells show "..." while loading.
+Use
+.B :columns toggle <name>
+to show or hide a column.
 .SS Settings View
 .TS
 l l.
@@ -258,6 +298,12 @@ Custom session names set from within tracer.
 .TP
 .I ~/.config/tracer/history
 Command palette history. One command per line, max 100 entries.
+.TP
+.I ~/.config/tracer/commands/<name>/command.json
+User-defined command metadata. See USER-DEFINED COMMANDS section.
+.TP
+.I ~/.config/tracer/columns/<name>/column.json
+User-defined column metadata. See CUSTOM COLUMNS section.
 .TP
 .I ~/.config/tracer/exports/
 Exported session Markdown files. Created by pressing \fBx\fR in the detail view.

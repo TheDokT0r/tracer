@@ -27,6 +27,8 @@ tracer/
 │   ├── config/
 │   │   ├── config.go              # Config struct (theme, sort, columns, confirm delete, auto update, cmd palette)
 │   │   ├── history.go             # Command history persistence (~/.config/tracer/history)
+│   │   ├── commands.go            # User-defined commands (scan, scaffold, delete from ~/.config/tracer/commands/)
+│   │   ├── columns.go             # User-defined columns (scan, scaffold, delete from ~/.config/tracer/columns/)
 │   │   ├── pins.go                # Pinned session IDs
 │   │   └── renames.go             # Custom session renames from tracer
 │   ├── model/
@@ -43,7 +45,7 @@ tracer/
 │   │   ├── permsadd.go            # Add rule flow — multi-step inline prompt
 │   │   ├── command.go             # Command registry, parser, matcher (Command/CommandArg structs)
 │   │   ├── command_input.go       # Command input widget — dropdown, ghost text, history nav
-│   │   ├── command_run.go         # Built-in command Run functions and defaultRegistry()
+│   │   ├── command_run.go         # Built-in command Run functions, defaultRegistry(), user command/column management
 │   │   ├── settings.go            # Settings view + standalone SettingsApp
 │   │   ├── theme.go               # 11 theme definitions and ApplyTheme
 │   │   ├── themepicker.go         # Interactive theme picker (tracer theme command)
@@ -139,10 +141,14 @@ All settings in `~/.config/tracer/config.json`:
 | Ghost suggest | `cmd_ghost` | true/false | false |
 | Max suggestions | `cmd_max_suggestions` | 3–12 | 8 |
 
+| Hidden columns | `hidden_columns` | string array | [] |
+
 Other config files:
 - `~/.config/tracer/pins.json` — pinned session IDs
 - `~/.config/tracer/renames.json` — custom session names
 - `~/.config/tracer/history` — command palette history (plain text, one per line)
+- `~/.config/tracer/commands/` — user-defined commands (one directory per command)
+- `~/.config/tracer/columns/` — user-defined columns (one directory per column)
 
 ### Themes
 
@@ -166,7 +172,7 @@ Uses proper semver comparison (prevents downgrades). Auto-update is disabled for
 
 ### UI Views
 
-**Sessions list** (`list.go`): Table with configurable columns (Name always shown; Date, Directory, Branch toggleable). Column widths distributed dynamically. Supports filtering and configurable sort order.
+**Sessions list** (`list.go`): Table with configurable columns (Name always shown; Date, Directory, Branch toggleable; user-defined columns from `~/.config/tracer/columns/`). Column widths distributed dynamically. Custom columns populate asynchronously with "..." placeholder while loading. Supports filtering and configurable sort order.
 
 **Session detail** (`detail.go`): Session metadata, context usage progress bar, scrollable conversation viewport. Supports rename (`r`), edit (`e`), resume (`Enter`).
 
@@ -256,8 +262,43 @@ Press `:` in any view (except settings) to open the command palette. Type comman
 | `tab` | `<name>` | Switch tab |
 | `quit` | — | Quit |
 | `help` | `[command]` | Show help |
+| `commands` | `<sub> [name]` | Manage user commands (list/new/new-ai/edit/delete) |
+| `columns` | `<sub> [name]` | Manage custom columns (list/new/new-ai/edit/delete/toggle) |
 
-Commands are context-aware (only available commands appear). Multi-word commands use longest-prefix matching. History persists across sessions.
+Commands are context-aware (only available commands appear). Multi-word commands use longest-prefix matching. History persists across sessions. User-defined commands are loaded from `~/.config/tracer/commands/` and can shadow built-ins.
+
+### User-Defined Commands
+
+Each command lives in `~/.config/tracer/commands/<name>/` with a `command.json` and optional scripts:
+
+```json
+{
+  "description": "What it does",
+  "alias": "quit",           // OR
+  "shell": "run.sh",         // mutually exclusive with alias
+  "mode": "status|exec",     // status=show in bar, exec=full terminal
+  "args": [{"name": "env", "required": true, "completions": [{"value": "prod", "description": "Production"}]}],
+  "autostart": false
+}
+```
+
+Use `:commands new <name>` to scaffold, `:commands new-ai <name>` for AI-assisted creation.
+
+### Custom Columns
+
+Each column lives in `~/.config/tracer/columns/<name>/` with a `column.json` and a script:
+
+```json
+{
+  "description": "What it shows",
+  "header": "Header",
+  "shell": "run.sh",
+  "width": 10,
+  "timeout": 5
+}
+```
+
+The script receives the session directory as `$1` and outputs one line (the cell value). Scripts run async in parallel — cells show "..." while loading. Use `:columns new <name>` to scaffold, `:columns new-ai <name>` for AI-assisted creation, `:columns toggle <name>` to show/hide.
 
 #### Settings / General
 
@@ -296,8 +337,14 @@ Tests cover: JSONL parsing, session scanning, session deletion, skill scanning, 
 
 ### Adding a new command to the palette
 1. Add a `Command` entry in `defaultRegistry()` in `ui/command_run.go`
-2. Set `Name`, `Args` (with `Options` for completions), `Description`, `Contexts`, and `Run`
+2. Set `Name`, `Args` (with `Options` returning `[]Completion` for intellisense), `Description`, `Contexts`, and `Run`
 3. The `Run` function receives `*App` and `[]string` args — call existing App methods
+
+### Creating a user command (at runtime)
+Use `:commands new <name>` to scaffold or `:commands new-ai <name>` for AI-assisted creation. Commands live in `~/.config/tracer/commands/<name>/`.
+
+### Creating a custom column (at runtime)
+Use `:columns new <name>` to scaffold or `:columns new-ai <name>` for AI-assisted creation. Columns live in `~/.config/tracer/columns/<name>/`.
 
 ### Adding a new tab
 1. Add a `Tab` const in `tabs.go` and update `tabNames`

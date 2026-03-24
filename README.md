@@ -116,7 +116,32 @@ Press `:` in any view to open the command palette. Type commands with autocomple
 :help               List all commands
 ```
 
-Dropdown suggestions appear above the input. Ghost text (dimmed inline suggestion) can be enabled in settings. Command history persists across sessions — use `Up/Down` to recall previous commands.
+Dropdown suggestions appear above the input with descriptions. Ghost text (dimmed inline suggestion) can be enabled in settings. Command history persists across sessions — use `Up/Down` to recall previous commands.
+
+### User Commands
+
+Create custom commands that extend the palette:
+
+```bash
+:commands new deploy       # Scaffold and open in $EDITOR
+:commands new-ai deploy    # AI-assisted creation (launches Claude)
+:commands edit deploy       # Edit existing command
+:commands delete deploy     # Delete command
+```
+
+Commands live in `~/.config/tracer/commands/<name>/` with a `command.json` and script. They can be aliases (shortcuts to other commands) or shell scripts with `status` (show output in bar) or `exec` (full terminal) mode.
+
+### Custom Columns
+
+Add custom data columns to the session list:
+
+```bash
+:columns new cost          # Scaffold a new column
+:columns new-ai cost       # AI-assisted creation
+:columns toggle cost       # Show/hide column
+```
+
+Columns live in `~/.config/tracer/columns/<name>/`. The script receives the session directory as `$1` and outputs one line. Columns populate asynchronously — cells show "..." while loading.
 
 ### Settings
 

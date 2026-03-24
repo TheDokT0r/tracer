@@ -17,7 +17,7 @@ type commandInput struct {
 	cfg            config.Config
 	ctx            viewState
 	suggestions    []Command
-	argSuggestions []string
+	argSuggestions []Completion
 	selected       int
 	history        []string
 	historyIdx     int
@@ -116,15 +116,15 @@ func (ci *commandInput) refreshSuggestions() {
 	}
 }
 
-func (ci *commandInput) allSuggestions() []string {
+func (ci *commandInput) allSuggestions() []Completion {
 	if len(ci.argSuggestions) > 0 {
 		return ci.argSuggestions
 	}
-	var names []string
+	var comps []Completion
 	for _, s := range ci.suggestions {
-		names = append(names, s.Name)
+		comps = append(comps, Completion{Value: s.Name, Description: s.Description})
 	}
-	return names
+	return comps
 }
 
 func (ci *commandInput) dropdownVisible() bool {
@@ -140,7 +140,7 @@ func (ci *commandInput) acceptSuggestion() {
 	if idx < 0 || idx >= len(sugs) {
 		idx = 0
 	}
-	suggestion := sugs[idx]
+	suggestion := sugs[idx].Value
 
 	if len(ci.argSuggestions) > 0 {
 		cmd, _ := ci.registry.resolve(ci.input.Value())
@@ -200,7 +200,7 @@ func (ci *commandInput) ghostText() string {
 	if idx < 0 || idx >= len(sugs) {
 		idx = 0
 	}
-	suggestion := sugs[idx]
+	suggestion := sugs[idx].Value
 	current := ci.input.Value()
 	if strings.HasPrefix(suggestion, current) {
 		return suggestion[len(current):]
@@ -253,22 +253,12 @@ func (ci *commandInput) viewDropdown(width int) string {
 	normalName := lipgloss.NewStyle().Foreground(white)
 
 	var lines []string
-	for i, sug := range visible {
+	for i, comp := range visible {
 		actualIdx := start + i
-		name := sug
-		desc := ""
 
-		if len(ci.argSuggestions) == 0 {
-			// It's a command name — find description from suggestions slice
-			cmdIdx := actualIdx
-			if cmdIdx < len(ci.suggestions) {
-				desc = ci.suggestions[cmdIdx].Description
-			}
-		}
-
-		nameStr := fmt.Sprintf("  %-20s", name)
-		if desc != "" {
-			nameStr += " " + desc
+		nameStr := fmt.Sprintf("  %-20s", comp.Value)
+		if comp.Description != "" {
+			nameStr += " " + comp.Description
 		}
 		if len(nameStr) > width-2 && width > 4 {
 			nameStr = nameStr[:width-2]
@@ -277,9 +267,9 @@ func (ci *commandInput) viewDropdown(width int) string {
 		if actualIdx == ci.selected {
 			lines = append(lines, selectedBg.Render(nameStr))
 		} else {
-			if desc != "" {
-				namePart := fmt.Sprintf("  %-20s ", name)
-				lines = append(lines, normalName.Render(namePart)+dimmedStyle.Render(desc))
+			if comp.Description != "" {
+				namePart := fmt.Sprintf("  %-20s ", comp.Value)
+				lines = append(lines, normalName.Render(namePart)+dimmedStyle.Render(comp.Description))
 			} else {
 				lines = append(lines, normalName.Render(nameStr))
 			}

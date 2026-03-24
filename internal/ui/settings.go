@@ -25,22 +25,36 @@ const (
 )
 
 type settingsView struct {
-	cfg    config.Config
-	cursor int
-	width  int
-	height int
+	cfg         config.Config
+	cursor      int
+	width       int
+	height      int
+	userColumns []config.UserColumn // cached for toggle display
 }
 
 func newSettingsView(cfg config.Config, width, height int) settingsView {
 	return settingsView{
-		cfg:    cfg,
+		cfg:         cfg,
+		userColumns: config.ScanUserColumns(),
 		cursor: 0,
 		width:  width,
 		height: height,
 	}
 }
 
+func (sv settingsView) totalItems() int {
+	return int(settingCount) + len(sv.userColumns)
+}
+
 func (sv *settingsView) cycleRight() {
+	// Handle custom column toggles (indices >= settingCount)
+	if sv.cursor >= int(settingCount) {
+		colIdx := sv.cursor - int(settingCount)
+		if colIdx < len(sv.userColumns) {
+			sv.cfg.ToggleColumn(sv.userColumns[colIdx].Name)
+		}
+		return
+	}
 	switch settingType(sv.cursor) {
 	case settingTheme:
 		names := ThemeNames()
@@ -82,6 +96,11 @@ func (sv *settingsView) cycleRight() {
 }
 
 func (sv *settingsView) cycleLeft() {
+	// Handle custom column toggles
+	if sv.cursor >= int(settingCount) {
+		sv.cycleRight() // toggle is the same both ways
+		return
+	}
 	switch settingType(sv.cursor) {
 	case settingTheme:
 		names := ThemeNames()
@@ -141,6 +160,20 @@ func (sv settingsView) view() string {
 		{label: "Cmd dropdown", value: boolDisplay(sv.cfg.CmdDropdown), section: "Command Palette"},
 		{label: "Ghost suggest", value: boolDisplay(sv.cfg.CmdGhost)},
 		{label: "Max suggestions", value: fmt.Sprintf("%d", sv.cfg.CmdMaxSuggestions)},
+	}
+	if len(sv.userColumns) > 0 {
+		first := true
+		for _, col := range sv.userColumns {
+			item := settingItem{
+				label: "Show " + col.Header,
+				value: boolDisplay(!sv.cfg.IsColumnHidden(col.Name)),
+			}
+			if first {
+				item.section = "Custom Columns"
+				first = false
+			}
+			items = append(items, item)
+		}
 	}
 
 	for i, item := range items {
@@ -217,7 +250,7 @@ func (sa SettingsApp) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				sa.sv.cursor--
 			}
 		case "down", "j":
-			if sa.sv.cursor < int(settingCount)-1 {
+			if sa.sv.cursor < sa.sv.totalItems()-1 {
 				sa.sv.cursor++
 			}
 		case "right", "l", "enter":

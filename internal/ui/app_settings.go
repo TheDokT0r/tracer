@@ -23,7 +23,7 @@ func (a App) updateSettings(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return a, nil
 		case "down", "j":
-			if a.settings.cursor < int(settingCount)-1 {
+			if a.settings.cursor < a.settings.totalItems()-1 {
 				a.settings.cursor++
 			}
 			return a, nil

@@ -29,7 +29,27 @@ type Config struct {
 	AutoUpdate        bool   `json:"auto_update"`
 	CmdDropdown       bool   `json:"cmd_dropdown"`
 	CmdGhost          bool   `json:"cmd_ghost"`
-	CmdMaxSuggestions int    `json:"cmd_max_suggestions"`
+	CmdMaxSuggestions int      `json:"cmd_max_suggestions"`
+	HiddenColumns     []string `json:"hidden_columns,omitempty"`
+}
+
+func (c Config) IsColumnHidden(name string) bool {
+	for _, h := range c.HiddenColumns {
+		if h == name {
+			return true
+		}
+	}
+	return false
+}
+
+func (c *Config) ToggleColumn(name string) {
+	for i, h := range c.HiddenColumns {
+		if h == name {
+			c.HiddenColumns = append(c.HiddenColumns[:i], c.HiddenColumns[i+1:]...)
+			return
+		}
+	}
+	c.HiddenColumns = append(c.HiddenColumns, name)
 }
 
 func DefaultConfig() Config {

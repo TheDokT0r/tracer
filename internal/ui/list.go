@@ -14,15 +14,17 @@ import (
 )
 
 type listView struct {
-	table     table.Model
-	filter    textinput.Model
-	filtering bool
-	sessions  []model.Session
-	filtered  []model.Session
-	pins      map[string]bool
-	cfg       config.Config
-	width     int
-	height    int
+	table      table.Model
+	filter     textinput.Model
+	filtering  bool
+	sessions   []model.Session
+	filtered   []model.Session
+	pins       map[string]bool
+	cfg        config.Config
+	columns    []config.UserColumn
+	columnData map[string]map[string]string // column name -> session ID -> value
+	width      int
+	height     int
 }
 
 func newListView(sessions []model.Session, pins map[string]bool, cfg config.Config, width, height int) listView {
@@ -31,13 +33,15 @@ func newListView(sessions []model.Session, pins map[string]bool, cfg config.Conf
 	ti.Placeholder = "type to filter..."
 
 	lv := listView{
-		filter:   ti,
-		sessions: sessions,
-		filtered: sessions,
-		pins:     pins,
-		cfg:      cfg,
-		width:    width,
-		height:   height,
+		filter:     ti,
+		sessions:   sessions,
+		filtered:   sessions,
+		pins:       pins,
+		cfg:        cfg,
+		columns:    config.ScanUserColumns(),
+		columnData: make(map[string]map[string]string),
+		width:      width,
+		height:     height,
 	}
 	lv.sortSessions()
 	lv.rebuildTable()
@@ -71,6 +75,14 @@ func (lv *listView) sortSessions() {
 func (lv *listView) rebuildTable() {
 	dateWidth := 18
 
+	// Collect visible custom columns
+	var visibleCustom []config.UserColumn
+	for _, col := range lv.columns {
+		if !lv.cfg.IsColumnHidden(col.Name) {
+			visibleCustom = append(visibleCustom, col)
+		}
+	}
+
 	// Count visible columns to account for Cell padding (Padding(0,1) = 2 chars per column)
 	numCols := 1 // Name is always shown
 	if lv.cfg.ShowDate {
@@ -82,9 +94,16 @@ func (lv *listView) rebuildTable() {
 	if lv.cfg.ShowBranch {
 		numCols++
 	}
+	numCols += len(visibleCustom)
 	cellPadding := 2 * numCols
 
-	remaining := lv.width - cellPadding
+	// Reserve space for custom columns
+	customWidth := 0
+	for _, col := range visibleCustom {
+		customWidth += col.Width
+	}
+
+	remaining := lv.width - cellPadding - customWidth
 	if lv.cfg.ShowDate {
 		remaining -= dateWidth
 	}
@@ -129,6 +148,9 @@ func (lv *listView) rebuildTable() {
 	if lv.cfg.ShowBranch {
 		cols = append(cols, table.Column{Title: "Branch", Width: branchWidth})
 	}
+	for _, col := range visibleCustom {
+		cols = append(cols, table.Column{Title: col.Header, Width: col.Width})
+	}
 
 	home := os.Getenv("HOME")
 
@@ -151,6 +173,15 @@ func (lv *listView) rebuildTable() {
 		}
 		if lv.cfg.ShowBranch {
 			row = append(row, truncate(s.Branch, branchWidth))
+		}
+		for _, col := range visibleCustom {
+			val := "..."
+			if data, ok := lv.columnData[col.Name]; ok {
+				if v, ok := data[s.ID]; ok {
+					val = v
+				}
+			}
+			row = append(row, truncate(val, col.Width))
 		}
 		rows = append(rows, row)
 	}

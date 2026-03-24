@@ -1,9 +1,11 @@
 package ui
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -50,11 +52,13 @@ type App struct {
 	newSkillInput textinput.Model
 	confirmDelete bool
 	exportPicker  bool
-	commandMode   bool
-	cmdInput      commandInput
-	cmdRegistry   *registry
-	cmdHistory    []string
-	statusMsg     string
+	commandMode          bool
+	cmdInput             commandInput
+	cmdRegistry          *registry
+	cmdHistory           []string
+	pendingRescan        bool
+	pendingCommandDelete string
+	statusMsg            string
 	width         int
 	height        int
 }
@@ -69,17 +73,65 @@ func NewApp(claudeDir string, sessions []model.Session, pins map[string]bool, cf
 		skillsList:  newSkillsListView(skills, 80, 24),
 		permsList:   newPermsListView(settingsFiles, 80, 24),
 		view:        viewList,
-		cmdRegistry: defaultRegistry(),
+		cmdRegistry: func() *registry {
+			reg := defaultRegistry()
+			loadUserCommands(reg)
+			return reg
+		}(),
 		cmdHistory:  config.LoadHistory(),
 	}
 }
 
-func (a App) Init() tea.Cmd { return nil }
+func (a App) Init() tea.Cmd {
+	var cmds []tea.Cmd
+
+	// Run autostart commands
+	for _, uc := range config.ScanUserCommands() {
+		if uc.Autostart && uc.Shell != "" && uc.Mode == "status" {
+			uc := uc
+			cmds = append(cmds, func() tea.Msg {
+				return autostartMsg{cmd: uc}
+			})
+		}
+	}
+
+	// Populate custom columns async
+	if len(a.list.columns) > 0 {
+		cmds = append(cmds, func() tea.Msg {
+			return columnTickMsg{}
+		})
+	}
+
+	if len(cmds) > 0 {
+		return tea.Batch(cmds...)
+	}
+	return nil
+}
 
 func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg.(type) {
 	case editorFinishedMsg:
 		return a.handleEditorFinished()
+	case userCommandFinishedMsg:
+		a.rescanCommands()
+		a.rescanColumns()
+		return a, nil
+	case columnResultMsg:
+		m := msg.(columnResultMsg)
+		if a.list.columnData[m.column] == nil {
+			a.list.columnData[m.column] = make(map[string]string)
+		}
+		a.list.columnData[m.column][m.sessionID] = m.value
+		a.list.rebuildTable()
+		return a, nil
+	case columnTickMsg:
+		return a, a.populateColumns()
+	case autostartMsg:
+		result := runShellCommand(&a, msg.(autostartMsg).cmd, nil)
+		if result != nil {
+			return a, result
+		}
+		return a, nil
 	case statusClearMsg:
 		a.statusMsg = ""
 		return a, nil
@@ -118,6 +170,12 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (a App) handleEditorFinished() (tea.Model, tea.Cmd) {
+	if a.pendingRescan {
+		a.pendingRescan = false
+		a.rescanCommands()
+		a.rescanColumns()
+		return a, nil
+	}
 	switch a.view {
 	case viewDetail:
 		return a.openSessionDetail()
@@ -192,6 +250,21 @@ func (a App) updateDeleteConfirm(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (a *App) executeDelete() {
+	if a.pendingCommandDelete != "" {
+		if strings.HasPrefix(a.pendingCommandDelete, "col:") {
+			name := a.pendingCommandDelete[4:]
+			config.DeleteColumn(name)
+			a.statusMsg = "Deleted column: " + name
+			a.pendingCommandDelete = ""
+			a.rescanColumns()
+			return
+		}
+		config.DeleteCommand(a.pendingCommandDelete)
+		a.statusMsg = "Deleted command: " + a.pendingCommandDelete
+		a.pendingCommandDelete = ""
+		a.rescanCommands()
+		return
+	}
 	switch a.view {
 	case viewList, viewDetail:
 		if s := a.list.selectedSession(); s != nil {
@@ -274,6 +347,20 @@ func (a App) executeCommand(input string) (tea.Model, tea.Cmd) {
 
 type editorFinishedMsg struct{}
 
+type userCommandFinishedMsg struct{}
+
+type autostartMsg struct {
+	cmd config.UserCommand
+}
+
+type columnResultMsg struct {
+	column    string
+	sessionID string
+	value     string
+}
+
+type columnTickMsg struct{}
+
 type statusClearMsg struct{}
 
 func statusClearCmd() tea.Cmd {
@@ -299,6 +386,66 @@ func replaceLastLine(content, replacement string) string {
 		lines[len(lines)-1] = replacement
 	}
 	return strings.Join(lines, "\n")
+}
+
+func (a *App) populateColumns() tea.Cmd {
+	columns := config.ScanUserColumns()
+	var cmds []tea.Cmd
+	for _, col := range columns {
+		if a.cfg.IsColumnHidden(col.Name) {
+			continue
+		}
+		col := col
+		for _, s := range a.list.sessions {
+			s := s
+			// Skip if already populated
+			if data, ok := a.list.columnData[col.Name]; ok {
+				if _, ok := data[s.ID]; ok {
+					continue
+				}
+			}
+			cmds = append(cmds, func() tea.Msg {
+				scriptPath := filepath.Join(col.Dir, col.Shell)
+				dir := s.Directory
+				if dir == "" {
+					dir = os.Getenv("HOME")
+				}
+				ctx, cancel := context.WithTimeout(context.Background(), time.Duration(col.Timeout)*time.Second)
+				defer cancel()
+				c := exec.CommandContext(ctx, scriptPath, dir)
+				c.Dir = col.Dir
+				c.Env = append(os.Environ(), "TRACER_COL_DIR="+col.Dir, "SESSION_DIR="+s.Directory, "SESSION_ID="+s.ID)
+				out, err := c.Output()
+				val := "—"
+				if err == nil {
+					line := strings.SplitN(strings.TrimSpace(string(out)), "\n", 2)[0]
+					if line != "" {
+						val = line
+					}
+				}
+				return columnResultMsg{column: col.Name, sessionID: s.ID, value: val}
+			})
+		}
+	}
+	if len(cmds) > 0 {
+		return tea.Batch(cmds...)
+	}
+	return nil
+}
+
+func (a *App) rescanColumns() {
+	a.list.columns = config.ScanUserColumns()
+	a.list.columnData = make(map[string]map[string]string)
+	a.list.rebuildTable()
+}
+
+func (a *App) rescanCommands() {
+	reg := defaultRegistry()
+	loadUserCommands(reg)
+	a.cmdRegistry = reg
+	if a.commandMode {
+		a.cmdInput.registry = reg
+	}
 }
 
 func (a *App) rescanSkills() {
@@ -388,14 +535,18 @@ func (a App) View() tea.View {
 	// Delete confirmation (replaces help bar)
 	if a.confirmDelete {
 		var name string
-		switch a.view {
-		case viewList, viewDetail:
-			if s := a.list.selectedSession(); s != nil {
-				name = s.Name
-			}
-		case viewSkillsList, viewSkillDetail:
-			if sk := a.skillsList.selectedSkill(); sk != nil {
-				name = sk.Name
+		if a.pendingCommandDelete != "" {
+			name = "command: " + a.pendingCommandDelete
+		} else {
+			switch a.view {
+			case viewList, viewDetail:
+				if s := a.list.selectedSession(); s != nil {
+					name = s.Name
+				}
+			case viewSkillsList, viewSkillDetail:
+				if sk := a.skillsList.selectedSkill(); sk != nil {
+					name = sk.Name
+				}
 			}
 		}
 		content = replaceLastLine(content, deletePromptStyle.Render(

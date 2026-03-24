@@ -172,6 +172,21 @@ tracer man            View the manual page
 tracer -v             Print version
 ```
 
+## Documentation
+
+Detailed docs for each feature are in the [`docs/`](docs/) directory:
+
+- [Sessions](docs/sessions.md) — browsing, resuming, forking, pinning, renaming
+- [Skills](docs/skills.md) — browsing, creating, editing skills
+- [Permissions](docs/permissions.md) — managing allow/deny rules
+- [Commands](docs/commands.md) — command palette and user-defined commands
+- [Custom Columns](docs/custom-columns.md) — script-powered table columns
+- [Themes](docs/themes.md) — 12 built-in color themes
+- [Settings](docs/settings.md) — all configuration options
+- [Export](docs/export.md) — Markdown and HTML export
+- [CLI](docs/cli.md) — subcommands, flags, auto-update
+- [Keybindings](docs/keybindings.md) — complete keyboard reference
+
 ## How It Works
 
 tracer reads from `~/.claude/`:

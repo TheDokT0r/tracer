@@ -309,6 +309,18 @@ The script receives the session directory as `$1` and outputs one line (the cell
 | `Esc` / `q` | Save & back |
 | `Ctrl+C` | Quit |
 
+## Documentation
+
+Feature docs live in `docs/`:
+- `docs/sessions.md`, `docs/skills.md`, `docs/permissions.md` — tab features
+- `docs/commands.md` — command palette + user commands
+- `docs/custom-columns.md` — user-defined columns
+- `docs/themes.md`, `docs/settings.md` — configuration
+- `docs/export.md`, `docs/cli.md` — export and CLI
+- `docs/keybindings.md` — all keyboard shortcuts
+
+Keep these in sync when adding or changing user-facing features.
+
 ## Build & Run
 
 ```bash

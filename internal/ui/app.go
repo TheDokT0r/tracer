@@ -340,6 +340,9 @@ func (a App) executeCommand(input string) (tea.Model, tea.Cmd) {
 	if result != nil {
 		return a, result
 	}
+	if a.statusMsg != "" {
+		return a, statusClearCmd()
+	}
 	return a, nil
 }
 
@@ -362,6 +365,19 @@ type columnResultMsg struct {
 type columnTickMsg struct{}
 
 type statusClearMsg struct{}
+
+func isErrorStatus(msg string) bool {
+	for _, prefix := range []string{
+		"Unknown ", "Error:", "Usage:", "Invalid ", "Failed:",
+		"Command not ", "Column not ", "Cannot ", "Claude not ",
+		"No messages", "Export failed", "Alias loop", "not available",
+	} {
+		if strings.HasPrefix(msg, prefix) {
+			return true
+		}
+	}
+	return false
+}
 
 func statusClearCmd() tea.Cmd {
 	return tea.Tick(3*time.Second, func(t time.Time) tea.Msg {
@@ -527,9 +543,17 @@ func (a App) View() tea.View {
 		}
 	}
 
-	// Status message (replaces help bar)
+	// Status message (shown on the line above the help bar)
 	if a.statusMsg != "" {
-		content = replaceLastLine(content, valueStyle.Render(a.statusMsg))
+		lines := strings.Split(content, "\n")
+		if len(lines) >= 2 {
+			style := valueStyle
+			if isErrorStatus(a.statusMsg) {
+				style = deletePromptStyle
+			}
+			lines[len(lines)-2] = style.Render(a.statusMsg)
+			content = strings.Join(lines, "\n")
+		}
 	}
 
 	// Delete confirmation (replaces help bar)

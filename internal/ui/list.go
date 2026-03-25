@@ -8,7 +8,6 @@ import (
 
 	"charm.land/bubbles/v2/table"
 	"charm.land/bubbles/v2/textinput"
-	"charm.land/lipgloss/v2"
 	"tracer/internal/config"
 	"tracer/internal/model"
 )
@@ -94,6 +93,9 @@ func (lv *listView) rebuildTable() {
 	if lv.cfg.ShowBranch {
 		numCols++
 	}
+	if lv.cfg.ShowModel {
+		numCols++
+	}
 	numCols += len(visibleCustom)
 	cellPadding := 2 * numCols
 
@@ -106,6 +108,11 @@ func (lv *listView) rebuildTable() {
 	remaining := lv.width - cellPadding - customWidth
 	if lv.cfg.ShowDate {
 		remaining -= dateWidth
+	}
+
+	modelWidth := 20
+	if lv.cfg.ShowModel {
+		remaining -= modelWidth
 	}
 
 	hasOptional := lv.cfg.ShowDirectory || lv.cfg.ShowBranch
@@ -148,6 +155,9 @@ func (lv *listView) rebuildTable() {
 	if lv.cfg.ShowBranch {
 		cols = append(cols, table.Column{Title: "Branch", Width: branchWidth})
 	}
+	if lv.cfg.ShowModel {
+		cols = append(cols, table.Column{Title: "Model", Width: modelWidth})
+	}
 	for _, col := range visibleCustom {
 		cols = append(cols, table.Column{Title: col.Header, Width: col.Width})
 	}
@@ -174,6 +184,9 @@ func (lv *listView) rebuildTable() {
 		if lv.cfg.ShowBranch {
 			row = append(row, truncate(s.Branch, branchWidth))
 		}
+		if lv.cfg.ShowModel {
+			row = append(row, truncate(shortModel(s.ModelID), modelWidth))
+		}
 		for _, col := range visibleCustom {
 			val := "..."
 			if data, ok := lv.columnData[col.Name]; ok {
@@ -191,24 +204,12 @@ func (lv *listView) rebuildTable() {
 		tableHeight = 1
 	}
 
-	t := CurrentTheme()
-	s := table.DefaultStyles()
-	s.Header = s.Header.
-		BorderStyle(lipgloss.NormalBorder()).
-		BorderBottom(true).
-		Bold(true).
-		Foreground(t.Primary)
-	s.Selected = s.Selected.
-		Foreground(t.SelectFg).
-		Background(t.SelectBg).
-		Bold(true)
-
 	lv.table = table.New(
 		table.WithColumns(cols),
 		table.WithRows(rows),
 		table.WithHeight(tableHeight),
 		table.WithWidth(lv.width),
-		table.WithStyles(s),
+		table.WithStyles(themedTableStyles()),
 		table.WithFocused(true),
 	)
 }
@@ -261,18 +262,18 @@ func (lv *listView) view() string {
 	} else {
 		sep := helpSepStyle.Render(" • ")
 		b.WriteString(
-			helpKeyStyle.Render("↑/↓") + helpDescStyle.Render(" navigate") + sep +
-				helpKeyStyle.Render("n") + helpDescStyle.Render(" new") + sep +
-				helpKeyStyle.Render("enter") + helpDescStyle.Render(" resume") + sep +
-				helpKeyStyle.Render("f") + helpDescStyle.Render(" fork") + sep +
-				helpKeyStyle.Render("v") + helpDescStyle.Render(" view") + sep +
-				helpKeyStyle.Render("c") + helpDescStyle.Render(" copy") + sep +
-				helpKeyStyle.Render("p") + helpDescStyle.Render(" pin") + sep +
-				helpKeyStyle.Render("/") + helpDescStyle.Render(" filter") + sep +
-				helpKeyStyle.Render("d") + helpDescStyle.Render(" delete") + sep +
-				helpKeyStyle.Render("s") + helpDescStyle.Render(" settings") + sep +
-				helpKeyStyle.Render("tab") + helpDescStyle.Render(" skills") + sep +
-				helpKeyStyle.Render("q") + helpDescStyle.Render(" quit"),
+			helpItem("↑/↓", "navigate") + sep +
+				helpItem("n", "new") + sep +
+				helpItem("enter", "resume") + sep +
+				helpItem("f", "fork") + sep +
+				helpItem("v", "view") + sep +
+				helpItem("c", "copy") + sep +
+				helpItem("p", "pin") + sep +
+				helpItem("/", "filter") + sep +
+				helpItem("d", "delete") + sep +
+				helpItem("s", "settings") + sep +
+				helpItem("tab", "skills") + sep +
+				helpItem("q", "quit"),
 		)
 	}
 
@@ -289,6 +290,13 @@ func removeByID(sessions []model.Session, id string) []model.Session {
 		}
 	}
 	return result
+}
+
+func shortModel(id string) string {
+	if id == "" {
+		return "-"
+	}
+	return strings.TrimPrefix(id, "claude-")
 }
 
 func truncate(s string, maxWidth int) string {

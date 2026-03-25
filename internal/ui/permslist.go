@@ -6,7 +6,6 @@ import (
 
 	"charm.land/bubbles/v2/table"
 	"charm.land/bubbles/v2/textinput"
-	"charm.land/lipgloss/v2"
 	"tracer/internal/ccsettings"
 )
 
@@ -64,24 +63,12 @@ func (pv *permsListView) rebuildTable() {
 		tableHeight = 1
 	}
 
-	t := CurrentTheme()
-	s := table.DefaultStyles()
-	s.Header = s.Header.
-		BorderStyle(lipgloss.NormalBorder()).
-		BorderBottom(true).
-		Bold(true).
-		Foreground(t.Primary)
-	s.Selected = s.Selected.
-		Foreground(t.SelectFg).
-		Background(t.SelectBg).
-		Bold(true)
-
 	pv.table = table.New(
 		table.WithColumns(cols),
 		table.WithRows(rows),
 		table.WithHeight(tableHeight),
 		table.WithWidth(pv.width),
-		table.WithStyles(s),
+		table.WithStyles(themedTableStyles()),
 		table.WithFocused(true),
 	)
 }
@@ -127,11 +114,11 @@ func (pv *permsListView) view() string {
 	} else {
 		sep := helpSepStyle.Render(" • ")
 		b.WriteString(
-			helpKeyStyle.Render("↑/↓") + helpDescStyle.Render(" navigate") + sep +
-				helpKeyStyle.Render("enter/v") + helpDescStyle.Render(" view rules") + sep +
-				helpKeyStyle.Render("/") + helpDescStyle.Render(" filter") + sep +
-				helpKeyStyle.Render("tab") + helpDescStyle.Render(" switch tab") + sep +
-				helpKeyStyle.Render("q") + helpDescStyle.Render(" quit"),
+			helpItem("↑/↓", "navigate") + sep +
+				helpItem("enter/v", "view rules") + sep +
+				helpItem("/", "filter") + sep +
+				helpItem("tab", "switch tab") + sep +
+				helpItem("q", "quit"),
 		)
 	}
 

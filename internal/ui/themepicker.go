@@ -155,9 +155,9 @@ func (tp ThemePicker) View() tea.View {
 	// Help
 	sep := helpSepStyle.Render(" • ")
 	b.WriteString(
-		helpKeyStyle.Render("←/→") + helpDescStyle.Render(" switch theme") + sep +
-			helpKeyStyle.Render("enter") + helpDescStyle.Render(" apply") + sep +
-			helpKeyStyle.Render("esc") + helpDescStyle.Render(" cancel"),
+		helpItem("←/→", "switch theme") + sep +
+			helpItem("enter", "apply") + sep +
+			helpItem("esc", "cancel"),
 	)
 
 	return tea.NewView(b.String())

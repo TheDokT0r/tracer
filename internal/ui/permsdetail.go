@@ -151,11 +151,11 @@ func (dv permsDetailView) view() string {
 
 	sep := helpSepStyle.Render(" • ")
 	b.WriteString(
-		helpKeyStyle.Render("↑/↓") + helpDescStyle.Render(" navigate") + sep +
-			helpKeyStyle.Render("a") + helpDescStyle.Render(" add rule") + sep +
-			helpKeyStyle.Render("t") + helpDescStyle.Render(" toggle allow/deny") + sep +
-			helpKeyStyle.Render("d") + helpDescStyle.Render(" delete rule") + sep +
-			helpKeyStyle.Render("esc") + helpDescStyle.Render(" back"),
+		helpItem("↑/↓", "navigate") + sep +
+			helpItem("a", "add rule") + sep +
+			helpItem("t", "toggle allow/deny") + sep +
+			helpItem("d", "delete rule") + sep +
+			helpItem("esc", "back"),
 	)
 
 	return b.String()

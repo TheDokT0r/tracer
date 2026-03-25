@@ -37,7 +37,7 @@ type App struct {
 	view          viewState
 	list          listView
 	detail        detailView
-	settings      settingsView
+	settings      *settingsView
 	skillsList    skillsListView
 	skillDetail   skillDetailView
 	permsList     permsListView

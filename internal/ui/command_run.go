@@ -334,6 +334,36 @@ func defaultRegistry() *registry {
 			},
 		},
 		{
+			Name: "model", Description: "Set model for Claude sessions",
+			Args: []CommandArg{{
+				Name: "model", Required: true,
+				Options: func(a *App) []Completion {
+					return []Completion{
+						{Value: "opus", Description: "Claude Opus (latest)"},
+						{Value: "sonnet", Description: "Claude Sonnet (latest)"},
+						{Value: "haiku", Description: "Claude Haiku (latest)"},
+						{Value: "claude-opus-4-6", Description: "Opus 4.6"},
+						{Value: "claude-opus-4-6[1m]", Description: "Opus 4.6 (1M context)"},
+						{Value: "claude-sonnet-4-6", Description: "Sonnet 4.6"},
+						{Value: "claude-sonnet-4-6[1m]", Description: "Sonnet 4.6 (1M context)"},
+						{Value: "", Description: "Clear (use Claude default)"},
+					}
+				},
+			}},
+			Contexts: allExceptSettings,
+			Run: func(a *App, args []string) tea.Cmd {
+				if len(args) == 0 {
+					if a.cfg.Model == "" {
+						a.statusMsg = "Model: (default)"
+					} else {
+						a.statusMsg = "Model: " + a.cfg.Model
+					}
+					return statusClearCmd()
+				}
+				return a.runSet("model", args[0])
+			},
+		},
+		{
 			Name: "settings", Description: "Open settings",
 			Contexts: []viewState{viewList},
 			Run: func(a *App, args []string) tea.Cmd {
@@ -780,6 +810,12 @@ func (a *App) runSet(key, value string) tea.Cmd {
 		a.cfg.ShowBranch = parseBool(value)
 		a.list.cfg = a.cfg
 		a.list.rebuildTable()
+	case "show_model":
+		a.cfg.ShowModel = parseBool(value)
+		a.list.cfg = a.cfg
+		a.list.rebuildTable()
+	case "model":
+		a.cfg.Model = value
 	case "confirm_delete":
 		a.cfg.ConfirmDelete = parseBool(value)
 	case "auto_update":

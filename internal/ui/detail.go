@@ -111,15 +111,15 @@ func (d detailView) view() string {
 	header := d.headerView()
 	body := d.viewport.View()
 	sep := helpSepStyle.Render(" • ")
-	help := helpKeyStyle.Render("↑/↓") + helpDescStyle.Render(" scroll") + sep +
-		helpKeyStyle.Render("enter") + helpDescStyle.Render(" resume") + sep +
-		helpKeyStyle.Render("f") + helpDescStyle.Render(" fork") + sep +
-		helpKeyStyle.Render("r") + helpDescStyle.Render(" rename") + sep +
-		helpKeyStyle.Render("e") + helpDescStyle.Render(" edit") + sep +
-		helpKeyStyle.Render("c") + helpDescStyle.Render(" copy") + sep +
-		helpKeyStyle.Render("x") + helpDescStyle.Render(" export") + sep +
-		helpKeyStyle.Render("d") + helpDescStyle.Render(" delete") + sep +
-		helpKeyStyle.Render("esc") + helpDescStyle.Render(" back")
+	help := helpItem("↑/↓", "scroll") + sep +
+		helpItem("enter", "resume") + sep +
+		helpItem("f", "fork") + sep +
+		helpItem("r", "rename") + sep +
+		helpItem("e", "edit") + sep +
+		helpItem("c", "copy") + sep +
+		helpItem("x", "export") + sep +
+		helpItem("d", "delete") + sep +
+		helpItem("esc", "back")
 
 	return header + body + "\n" + help
 }

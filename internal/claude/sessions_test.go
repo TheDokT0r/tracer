@@ -47,7 +47,7 @@ func TestScanSessions(t *testing.T) {
 	}
 
 	// Load full details
-	LoadSessionDetails(tmpDir, &s)
+	_, _ = LoadSessionDetail(tmpDir, &s)
 	if s.UserMsgs != 1 {
 		t.Errorf("UserMsgs = %d, want 1", s.UserMsgs)
 	}

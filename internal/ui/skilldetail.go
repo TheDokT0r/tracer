@@ -57,10 +57,10 @@ func (d skillDetailView) view() string {
 	header := d.headerView()
 	body := d.viewport.View()
 	sep := helpSepStyle.Render(" • ")
-	help := helpKeyStyle.Render("↑/↓") + helpDescStyle.Render(" scroll") + sep +
-		helpKeyStyle.Render("e") + helpDescStyle.Render(" edit") + sep +
-		helpKeyStyle.Render("d") + helpDescStyle.Render(" delete") + sep +
-		helpKeyStyle.Render("esc") + helpDescStyle.Render(" back")
+	help := helpItem("↑/↓", "scroll") + sep +
+		helpItem("e", "edit") + sep +
+		helpItem("d", "delete") + sep +
+		helpItem("esc", "back")
 
 	return header + body + "\n" + help
 }

@@ -25,6 +25,8 @@ type Config struct {
 	ShowDate          bool   `json:"show_date"`
 	ShowDirectory     bool   `json:"show_directory"`
 	ShowBranch        bool   `json:"show_branch"`
+	ShowModel         bool   `json:"show_model"`
+	Model             string `json:"model,omitempty"`
 	ConfirmDelete     bool   `json:"confirm_delete"`
 	AutoUpdate        bool   `json:"auto_update"`
 	CmdDropdown       bool   `json:"cmd_dropdown"`

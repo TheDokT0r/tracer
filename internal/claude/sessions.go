@@ -2,6 +2,7 @@ package claude
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -154,7 +155,7 @@ func scanSessionHead(path string) (model.Session, error) {
 			continue
 		}
 
-		// Pick up cwd/branch/timestamp from first entry that has them
+		// Pick up cwd/branch/timestamp/model from first entry that has them
 		if sess.Directory == "" && e.CWD != "" {
 			sess.Directory = e.CWD
 		}
@@ -163,6 +164,9 @@ func scanSessionHead(path string) (model.Session, error) {
 		}
 		if sess.StartedAt.IsZero() && !e.Timestamp.IsZero() {
 			sess.StartedAt = e.Timestamp
+		}
+		if sess.ModelID == "" && e.Type == "assistant" && e.Message.Model != "" {
+			sess.ModelID = e.Message.Model
 		}
 
 		if !e.IsRealUserMessage() {
@@ -191,19 +195,20 @@ func scanSessionHead(path string) (model.Session, error) {
 	return sess, nil
 }
 
-// LoadSessionDetails reads the full JSONL file to populate token counts and message stats.
-// Called when opening the detail view.
-func LoadSessionDetails(claudeDir string, session *model.Session) {
+// LoadSessionDetail reads the JSONL file in a single pass, populating both
+// session metadata (token counts, message stats) and conversation messages.
+func LoadSessionDetail(claudeDir string, session *model.Session) ([]model.Message, error) {
 	path := filepath.Join(claudeDir, "projects", session.ProjectPath, session.ID+".jsonl")
 	f, err := os.Open(path)
 	if err != nil {
-		return
+		return nil, err
 	}
 	defer f.Close()
 
 	scanner := bufio.NewScanner(f)
 	scanner.Buffer(make([]byte, maxLineBuffer), maxLineBuffer)
 
+	var messages []model.Message
 	var lastAssistantEntry Entry
 
 	for scanner.Scan() {
@@ -211,10 +216,17 @@ func LoadSessionDetails(claudeDir string, session *model.Session) {
 		if len(line) == 0 {
 			continue
 		}
+
+		// Skip non-message lines without a full JSON parse
+		if !isMessageLine(line) {
+			continue
+		}
+
 		e, err := parseLine(line)
 		if err != nil || !e.IsMessage() {
 			continue
 		}
+
 		switch e.Type {
 		case "user":
 			session.UserMsgs++
@@ -223,6 +235,19 @@ func LoadSessionDetails(claudeDir string, session *model.Session) {
 			session.OutputTokens += e.Message.Usage.OutputTokens
 			lastAssistantEntry = e
 		}
+
+		content := e.MessageContent()
+		if content != "" {
+			messages = append(messages, model.Message{
+				Role:      e.Type,
+				Content:   content,
+				Timestamp: e.Timestamp,
+			})
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, err
 	}
 
 	session.MessageCount = session.UserMsgs + session.AssistantMsgs
@@ -235,52 +260,22 @@ func LoadSessionDetails(claudeDir string, session *model.Session) {
 			session.ModelID = lastAssistantEntry.Message.Model
 		}
 	}
-}
-
-// LoadConversation reads a full JSONL file and returns all user/assistant
-// messages with non-empty content.
-func LoadConversation(claudeDir string, session model.Session) ([]model.Message, error) {
-	path := filepath.Join(claudeDir, "projects", session.ProjectPath, session.ID+".jsonl")
-
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
-	scanner := bufio.NewScanner(f)
-	scanner.Buffer(make([]byte, maxLineBuffer), maxLineBuffer)
-
-	var messages []model.Message
-
-	for scanner.Scan() {
-		line := scanner.Bytes()
-		if len(line) == 0 {
-			continue
-		}
-
-		e, err := parseLine(line)
-		if err != nil || !e.IsMessage() {
-			continue
-		}
-
-		content := e.MessageContent()
-		if content == "" {
-			continue
-		}
-
-		messages = append(messages, model.Message{
-			Role:      e.Type,
-			Content:   content,
-			Timestamp: e.Timestamp,
-		})
-	}
-
-	if err := scanner.Err(); err != nil {
-		return nil, err
-	}
 
 	return messages, nil
+}
+
+// isMessageLine checks if a JSONL line is a user or assistant message
+// by scanning the first bytes, avoiding a full JSON unmarshal for
+// file-history-snapshot, system, and other non-message entries.
+func isMessageLine(line []byte) bool {
+	// "type" can appear up to ~150 bytes in depending on preceding fields
+	n := len(line)
+	if n > 200 {
+		n = 200
+	}
+	prefix := line[:n]
+	return bytes.Contains(prefix, []byte(`"type":"user"`)) ||
+		bytes.Contains(prefix, []byte(`"type":"assistant"`))
 }
 
 // LoadRichConversation reads a full JSONL file and returns messages with all

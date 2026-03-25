@@ -6,7 +6,6 @@ import (
 
 	"charm.land/bubbles/v2/table"
 	"charm.land/bubbles/v2/textinput"
-	"charm.land/lipgloss/v2"
 	skillspkg "tracer/internal/skills"
 )
 
@@ -63,24 +62,12 @@ func (sv *skillsListView) rebuildTable() {
 		tableHeight = 1
 	}
 
-	t := CurrentTheme()
-	s := table.DefaultStyles()
-	s.Header = s.Header.
-		BorderStyle(lipgloss.NormalBorder()).
-		BorderBottom(true).
-		Bold(true).
-		Foreground(t.Primary)
-	s.Selected = s.Selected.
-		Foreground(t.SelectFg).
-		Background(t.SelectBg).
-		Bold(true)
-
 	sv.table = table.New(
 		table.WithColumns(cols),
 		table.WithRows(rows),
 		table.WithHeight(tableHeight),
 		table.WithWidth(sv.width),
-		table.WithStyles(s),
+		table.WithStyles(themedTableStyles()),
 		table.WithFocused(true),
 	)
 }
@@ -132,14 +119,14 @@ func (sv *skillsListView) view() string {
 	} else {
 		sep := helpSepStyle.Render(" • ")
 		b.WriteString(
-			helpKeyStyle.Render("↑/↓") + helpDescStyle.Render(" navigate") + sep +
-				helpKeyStyle.Render("enter/v") + helpDescStyle.Render(" view") + sep +
-				helpKeyStyle.Render("e") + helpDescStyle.Render(" edit") + sep +
-				helpKeyStyle.Render("n") + helpDescStyle.Render(" new") + sep +
-				helpKeyStyle.Render("d") + helpDescStyle.Render(" delete") + sep +
-				helpKeyStyle.Render("/") + helpDescStyle.Render(" filter") + sep +
-				helpKeyStyle.Render("tab") + helpDescStyle.Render(" sessions") + sep +
-				helpKeyStyle.Render("q") + helpDescStyle.Render(" quit"),
+			helpItem("↑/↓", "navigate") + sep +
+				helpItem("enter/v", "view") + sep +
+				helpItem("e", "edit") + sep +
+				helpItem("n", "new") + sep +
+				helpItem("d", "delete") + sep +
+				helpItem("/", "filter") + sep +
+				helpItem("tab", "sessions") + sep +
+				helpItem("q", "quit"),
 		)
 	}
 

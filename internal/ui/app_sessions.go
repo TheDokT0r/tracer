@@ -148,8 +148,7 @@ func (a App) openSessionDetail() (tea.Model, tea.Cmd) {
 	if s == nil {
 		return a, nil
 	}
-	claude.LoadSessionDetails(a.claudeDir, s)
-	messages, err := claude.LoadConversation(a.claudeDir, *s)
+	messages, err := claude.LoadSessionDetail(a.claudeDir, s)
 	if err != nil {
 		return a, nil
 	}
@@ -167,7 +166,11 @@ func (a App) resumeSession() (tea.Model, tea.Cmd) {
 	if err != nil {
 		return a, nil
 	}
-	c := exec.Command(claudeBin, "--resume", s.ID)
+	args := []string{"--resume", s.ID}
+	if a.cfg.Model != "" {
+		args = append(args, "--model", a.cfg.Model)
+	}
+	c := exec.Command(claudeBin, args...)
 	c.Dir = s.Directory
 	return a, tea.ExecProcess(c, func(err error) tea.Msg { return tea.Quit() })
 }
@@ -181,7 +184,11 @@ func (a App) forkSession() (tea.Model, tea.Cmd) {
 	if err != nil {
 		return a, nil
 	}
-	c := exec.Command(claudeBin, "--resume", s.ID, "--fork-session")
+	args := []string{"--resume", s.ID, "--fork-session"}
+	if a.cfg.Model != "" {
+		args = append(args, "--model", a.cfg.Model)
+	}
+	c := exec.Command(claudeBin, args...)
 	c.Dir = s.Directory
 	return a, tea.ExecProcess(c, func(err error) tea.Msg { return tea.Quit() })
 }
@@ -265,7 +272,11 @@ func (a App) startSessionInDir(dir string) (tea.Model, tea.Cmd) {
 	if err != nil {
 		return a, nil
 	}
-	c := exec.Command(claudeBin)
+	var args []string
+	if a.cfg.Model != "" {
+		args = append(args, "--model", a.cfg.Model)
+	}
+	c := exec.Command(claudeBin, args...)
 	c.Dir = dir
 	return a, tea.ExecProcess(c, func(err error) tea.Msg { return tea.Quit() })
 }

@@ -9,10 +9,16 @@ import (
 	"strings"
 	"syscall"
 
+	"sort"
+	"sync"
+
 	tea "charm.land/bubbletea/v2"
+	"tracer/internal/model"
 	"tracer/internal/ccsettings"
 	"tracer/internal/claude"
+	"tracer/internal/codex"
 	"tracer/internal/config"
+	"tracer/internal/gemini"
 	"tracer/internal/skills"
 	"tracer/internal/ui"
 	"tracer/internal/updater"
@@ -154,22 +160,52 @@ func main() {
 	}
 
 	claudeDir := filepath.Join(home, ".claude")
+	codexDir := filepath.Join(home, ".codex")
+	geminiDir := filepath.Join(home, ".gemini")
 
-	sessions, err := claude.ScanSessions(claudeDir)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error scanning sessions: %v\n", err)
-		os.Exit(1)
+	// Scan sessions from all agents in parallel
+	var sessions []model.Session
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+
+	scanAgent := func(fn func() ([]model.Session, error)) {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			s, err := fn()
+			if err != nil || len(s) == 0 {
+				return
+			}
+			mu.Lock()
+			sessions = append(sessions, s...)
+			mu.Unlock()
+		}()
 	}
+
+	if cfg.AgentClaude {
+		scanAgent(func() ([]model.Session, error) { return claude.ScanSessions(claudeDir) })
+	}
+	if cfg.AgentCodex {
+		scanAgent(func() ([]model.Session, error) { return codex.ScanSessions(codexDir) })
+	}
+	if cfg.AgentGemini {
+		scanAgent(func() ([]model.Session, error) { return gemini.ScanSessions(geminiDir) })
+	}
+	wg.Wait()
 
 	if len(sessions) == 0 {
-		fmt.Println("No Claude Code sessions found.")
+		fmt.Println("No AI coding sessions found.")
 		os.Exit(0)
 	}
+
+	sort.Slice(sessions, func(i, j int) bool {
+		return sessions[i].StartedAt.After(sessions[j].StartedAt)
+	})
 
 	pins := config.LoadPins()
 	renames := config.LoadRenames()
 
-	// Apply tracer renames on top of Claude /rename
+	// Apply tracer renames
 	for i := range sessions {
 		if name, ok := renames[sessions[i].ID]; ok {
 			sessions[i].Name = name

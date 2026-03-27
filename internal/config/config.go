@@ -26,6 +26,7 @@ type Config struct {
 	ShowDirectory     bool   `json:"show_directory"`
 	ShowBranch        bool   `json:"show_branch"`
 	ShowModel         bool   `json:"show_model"`
+	ShowAgent         bool   `json:"show_agent"`
 	Model             string `json:"model,omitempty"`
 	ConfirmDelete     bool   `json:"confirm_delete"`
 	AutoUpdate        bool   `json:"auto_update"`
@@ -33,6 +34,9 @@ type Config struct {
 	CmdGhost          bool   `json:"cmd_ghost"`
 	CmdMaxSuggestions int      `json:"cmd_max_suggestions"`
 	HiddenColumns     []string `json:"hidden_columns,omitempty"`
+	AgentClaude       bool     `json:"agent_claude"`
+	AgentCodex        bool     `json:"agent_codex"`
+	AgentGemini       bool     `json:"agent_gemini"`
 }
 
 func (c Config) IsColumnHidden(name string) bool {
@@ -64,6 +68,9 @@ func DefaultConfig() Config {
 		ConfirmDelete:     true,
 		CmdDropdown:       true,
 		CmdMaxSuggestions: 8,
+		AgentClaude:       true,
+		AgentCodex:        true,
+		AgentGemini:       true,
 	}
 }
 

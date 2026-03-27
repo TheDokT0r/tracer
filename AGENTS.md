@@ -321,6 +321,17 @@ Feature docs live in `docs/`:
 
 Keep these in sync when adding or changing user-facing features.
 
+### Pre-Commit / Pre-Push Documentation Check
+
+Before committing or pushing any changes, review the following to determine if documentation updates are needed:
+
+1. **`AGENTS.md`** — Update if you changed architecture, added/removed files, modified key bindings, added commands, changed config options, or altered any documented behavior.
+2. **`README.md`** — Update if you changed user-facing features, CLI flags, install steps, or usage examples.
+3. **`docs/`** — Update the relevant doc file if you changed behavior covered by that doc (see list above). If you added a wholly new feature, consider whether it needs its own doc file.
+4. **`tracer.1`** — Update the man page if you changed CLI subcommands, flags, or top-level usage.
+
+If none of the above are affected by your changes, no doc updates are needed.
+
 ## Build & Run
 
 ```bash

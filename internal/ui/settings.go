@@ -114,6 +114,11 @@ func (sv *settingsView) buildItems() []settingItem {
 			value: func() string { return boolDisplay(sv.cfg.ShowModel) },
 			cycle: func(_ int) { sv.cfg.ShowModel = !sv.cfg.ShowModel },
 		},
+		{
+			label: "Agent",
+			value: func() string { return boolDisplay(sv.cfg.ShowAgent) },
+			cycle: func(_ int) { sv.cfg.ShowAgent = !sv.cfg.ShowAgent },
+		},
 	}
 
 	// Custom column toggles
@@ -151,6 +156,26 @@ func (sv *settingsView) buildItems() []settingItem {
 					sv.cfg.CmdMaxSuggestions = 12
 				}
 			},
+		},
+	)
+
+	// -- Agents --
+	items = append(items,
+		settingItem{
+			label:   "Claude",
+			section: "Agents",
+			value:   func() string { return boolDisplay(sv.cfg.AgentClaude) },
+			cycle:   func(_ int) { sv.cfg.AgentClaude = !sv.cfg.AgentClaude },
+		},
+		settingItem{
+			label: "Codex",
+			value: func() string { return boolDisplay(sv.cfg.AgentCodex) },
+			cycle: func(_ int) { sv.cfg.AgentCodex = !sv.cfg.AgentCodex },
+		},
+		settingItem{
+			label: "Gemini",
+			value: func() string { return boolDisplay(sv.cfg.AgentGemini) },
+			cycle: func(_ int) { sv.cfg.AgentGemini = !sv.cfg.AgentGemini },
 		},
 	)
 

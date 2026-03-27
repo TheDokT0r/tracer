@@ -24,12 +24,13 @@ Press `:` to open the command palette from any view. Type a command and press `e
 ### Session Commands
 | Command              | Description                   |
 |----------------------|-------------------------------|
-| `:resume`            | Resume selected session       |
-| `:fork`              | Fork selected session         |
+| `:resume`            | Resume selected session (agent-aware) |
+| `:fork`              | Fork selected session (agent-aware)   |
 | `:copy`              | Copy session ID to clipboard  |
 | `:pin`               | Toggle pin                    |
 | `:rename <name>`     | Rename session                |
-| `:new [path]`        | New session in directory      |
+| `:new [path]`        | New session (pick agent if multiple enabled) |
+| `:model <name>`      | Set model for Claude sessions |
 | `:export <html\|md>` | Export conversation           |
 
 ### Navigation

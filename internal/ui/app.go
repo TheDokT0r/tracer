@@ -46,8 +46,11 @@ type App struct {
 	renames       map[string]string
 	renaming      bool
 	renameInput   textinput.Model
-	newSession    bool
-	newSessionDir textinput.Model
+	newSession      bool
+	newSessionDir   textinput.Model
+	newSessionAgent int      // index into enabledAgents
+	agentPicker     bool     // picking agent for new session
+	enabledAgents   []model.Agent
 	newSkill      bool
 	newSkillInput textinput.Model
 	confirmDelete bool
@@ -396,6 +399,27 @@ func openEditor(path string) tea.Cmd {
 	})
 }
 
+func (a App) agentPickerView() string {
+	var parts []string
+	for i, agent := range a.enabledAgents {
+		label := string(agent)
+		if i == a.newSessionAgent {
+			parts = append(parts, titleStyle.Render(" "+label+" "))
+		} else {
+			parts = append(parts, helpDescStyle.Render(" "+label+" "))
+		}
+	}
+	sep := helpSepStyle.Render(" ")
+	return helpKeyStyle.Render("Agent: ") +
+		strings.Join(parts, sep) +
+		helpSepStyle.Render("  ") +
+		helpItem("←/→", "select") +
+		helpSepStyle.Render(" • ") +
+		helpItem("enter", "confirm") +
+		helpSepStyle.Render(" • ") +
+		helpItem("esc", "cancel")
+}
+
 func replaceLastLine(content, replacement string) string {
 	lines := strings.Split(content, "\n")
 	if len(lines) > 0 {
@@ -503,7 +527,9 @@ func (a App) View() tea.View {
 	}
 
 	// Inline prompts (replace the help bar to avoid overflowing the terminal)
-	if a.newSession {
+	if a.agentPicker {
+		content = replaceLastLine(content, a.agentPickerView())
+	} else if a.newSession {
 		content = replaceLastLine(content, helpKeyStyle.Render("New session path: ")+a.newSessionDir.View())
 	}
 	if a.newSkill {

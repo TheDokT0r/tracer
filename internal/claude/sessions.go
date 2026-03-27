@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 	"tracer/internal/model"
 )
 
@@ -128,6 +129,28 @@ func loadRenames(claudeDir string) map[string]string {
 	return renames
 }
 
+// WriteRename appends a /rename entry to Claude's history.jsonl so that
+// Claude Code picks up the name natively on resume.
+func WriteRename(claudeDir string, session model.Session, name string) {
+	entry := map[string]interface{}{
+		"display":   "/rename " + name,
+		"sessionId": session.ID,
+		"project":   session.Directory,
+		"timestamp": time.Now().UnixMilli(),
+		"pastedContents": map[string]interface{}{},
+	}
+	data, err := json.Marshal(entry)
+	if err != nil {
+		return
+	}
+	f, err := os.OpenFile(filepath.Join(claudeDir, "history.jsonl"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	f.Write(append(data, '\n'))
+}
+
 // scanSessionHead reads only the first user message from a JSONL file.
 // This is fast — it stops reading as soon as it has the name, dir, branch, and date.
 func scanSessionHead(path string) (model.Session, error) {
@@ -138,7 +161,8 @@ func scanSessionHead(path string) (model.Session, error) {
 	defer f.Close()
 
 	sess := model.Session{
-		ID: strings.TrimSuffix(filepath.Base(path), ".jsonl"),
+		Agent: model.AgentClaude,
+		ID:    strings.TrimSuffix(filepath.Base(path), ".jsonl"),
 	}
 
 	scanner := bufio.NewScanner(f)

@@ -10,7 +10,10 @@ import (
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 	"tracer/internal/claude"
+	"tracer/internal/codex"
 	"tracer/internal/config"
+	"tracer/internal/gemini"
+	"tracer/internal/model"
 )
 
 func (a App) updateSessionList(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -148,7 +151,16 @@ func (a App) openSessionDetail() (tea.Model, tea.Cmd) {
 	if s == nil {
 		return a, nil
 	}
-	messages, err := claude.LoadSessionDetail(a.claudeDir, s)
+	var messages []model.Message
+	var err error
+	switch s.Agent {
+	case model.AgentCodex:
+		messages, err = codex.LoadSessionDetail(s.FilePath, s)
+	case model.AgentGemini:
+		messages, err = gemini.LoadSessionDetail(s.FilePath, s)
+	default:
+		messages, err = claude.LoadSessionDetail(a.claudeDir, s)
+	}
 	if err != nil {
 		return a, nil
 	}
@@ -162,15 +174,36 @@ func (a App) resumeSession() (tea.Model, tea.Cmd) {
 	if s == nil {
 		return a, nil
 	}
-	claudeBin, err := exec.LookPath("claude")
-	if err != nil {
-		return a, nil
+
+	var bin string
+	var args []string
+	var err error
+
+	switch s.Agent {
+	case model.AgentCodex:
+		bin, err = exec.LookPath("codex")
+		if err != nil {
+			return a, nil
+		}
+		args = []string{"resume", s.ID}
+	case model.AgentGemini:
+		a.statusMsg = "Gemini CLI does not support session resume"
+		return a, statusClearCmd()
+	default:
+		bin, err = exec.LookPath("claude")
+		if err != nil {
+			return a, nil
+		}
+		args = []string{"--resume", s.ID}
+		if a.cfg.Model != "" {
+			args = append(args, "--model", a.cfg.Model)
+		}
+		if s.Name != "" {
+			args = append(args, "--name", s.Name)
+		}
 	}
-	args := []string{"--resume", s.ID}
-	if a.cfg.Model != "" {
-		args = append(args, "--model", a.cfg.Model)
-	}
-	c := exec.Command(claudeBin, args...)
+
+	c := exec.Command(bin, args...)
 	c.Dir = s.Directory
 	return a, tea.ExecProcess(c, func(err error) tea.Msg { return tea.Quit() })
 }
@@ -180,15 +213,36 @@ func (a App) forkSession() (tea.Model, tea.Cmd) {
 	if s == nil {
 		return a, nil
 	}
-	claudeBin, err := exec.LookPath("claude")
-	if err != nil {
-		return a, nil
+
+	var bin string
+	var args []string
+	var err error
+
+	switch s.Agent {
+	case model.AgentCodex:
+		bin, err = exec.LookPath("codex")
+		if err != nil {
+			return a, nil
+		}
+		args = []string{"fork", s.ID}
+	case model.AgentGemini:
+		a.statusMsg = "Gemini CLI does not support session fork"
+		return a, statusClearCmd()
+	default:
+		bin, err = exec.LookPath("claude")
+		if err != nil {
+			return a, nil
+		}
+		args = []string{"--resume", s.ID, "--fork-session"}
+		if a.cfg.Model != "" {
+			args = append(args, "--model", a.cfg.Model)
+		}
+		if s.Name != "" {
+			args = append(args, "--name", s.Name)
+		}
 	}
-	args := []string{"--resume", s.ID, "--fork-session"}
-	if a.cfg.Model != "" {
-		args = append(args, "--model", a.cfg.Model)
-	}
-	c := exec.Command(claudeBin, args...)
+
+	c := exec.Command(bin, args...)
 	c.Dir = s.Directory
 	return a, tea.ExecProcess(c, func(err error) tea.Msg { return tea.Quit() })
 }
@@ -236,8 +290,27 @@ func (a App) exportMarkdown() (tea.Model, tea.Cmd) {
 }
 
 func (a App) exportHTML() (tea.Model, tea.Cmd) {
-	messages, err := claude.LoadRichConversation(a.claudeDir, a.detail.session)
-	if err != nil || len(messages) == 0 {
+	var messages []model.RichMessage
+
+	// Rich conversation (with tool use, images, thinking) only available for Claude
+	if a.detail.session.Agent == model.AgentClaude {
+		messages, _ = claude.LoadRichConversation(a.claudeDir, a.detail.session)
+	}
+
+	// Fall back to simple messages for non-Claude or on error
+	if len(messages) == 0 {
+		for _, m := range a.detail.messages {
+			if m.Content != "" {
+				messages = append(messages, model.RichMessage{
+					Role:      m.Role,
+					Blocks:    []model.ContentBlock{{Type: "text", Text: m.Content}},
+					Timestamp: m.Timestamp,
+				})
+			}
+		}
+	}
+
+	if len(messages) == 0 {
 		a.statusMsg = "No messages to export"
 		return a, statusClearCmd()
 	}
@@ -267,20 +340,6 @@ func copyToClipboard(text string) {
 	clipCmd.Run()
 }
 
-func (a App) startSessionInDir(dir string) (tea.Model, tea.Cmd) {
-	claudeBin, err := exec.LookPath("claude")
-	if err != nil {
-		return a, nil
-	}
-	var args []string
-	if a.cfg.Model != "" {
-		args = append(args, "--model", a.cfg.Model)
-	}
-	c := exec.Command(claudeBin, args...)
-	c.Dir = dir
-	return a, tea.ExecProcess(c, func(err error) tea.Msg { return tea.Quit() })
-}
-
 func (a App) editSessionFile() (tea.Model, tea.Cmd) {
 	s := a.list.selectedSession()
 	if s == nil {
@@ -291,6 +350,12 @@ func (a App) editSessionFile() (tea.Model, tea.Cmd) {
 }
 
 func (a App) startNewSession() (tea.Model, tea.Cmd) {
+	agents := a.getEnabledAgents()
+	if len(agents) == 0 {
+		a.statusMsg = "No agents enabled"
+		return a, statusClearCmd()
+	}
+	a.enabledAgents = agents
 	cwd, _ := os.Getwd()
 	ti := textinput.New()
 	ti.Placeholder = cwd
@@ -302,28 +367,107 @@ func (a App) startNewSession() (tea.Model, tea.Cmd) {
 	return a, nil
 }
 
+func (a App) getEnabledAgents() []model.Agent {
+	var agents []model.Agent
+	if a.cfg.AgentClaude {
+		agents = append(agents, model.AgentClaude)
+	}
+	if a.cfg.AgentCodex {
+		agents = append(agents, model.AgentCodex)
+	}
+	if a.cfg.AgentGemini {
+		agents = append(agents, model.AgentGemini)
+	}
+	return agents
+}
+
 func (a App) updateNewSession(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	// Agent picker mode
+	if a.agentPicker {
+		switch msg.String() {
+		case "esc":
+			a.agentPicker = false
+			a.newSession = false
+			return a, nil
+		case "left", "h":
+			if a.newSessionAgent > 0 {
+				a.newSessionAgent--
+			}
+			return a, nil
+		case "right", "l":
+			if a.newSessionAgent < len(a.enabledAgents)-1 {
+				a.newSessionAgent++
+			}
+			return a, nil
+		case "enter":
+			a.agentPicker = false
+			a.newSession = false
+			dir := strings.TrimSpace(a.newSessionDir.Value())
+			if dir == "" {
+				dir, _ = os.Getwd()
+			}
+			return a.launchNewSession(a.enabledAgents[a.newSessionAgent], dir)
+		}
+		return a, nil
+	}
+
+	// Dir input mode
 	switch msg.String() {
 	case "esc":
 		a.newSession = false
 		return a, nil
 	case "enter":
-		dir := strings.TrimSpace(a.newSessionDir.Value())
-		if dir == "" {
-			dir, _ = os.Getwd()
+		// If only one agent enabled, skip picker
+		if len(a.enabledAgents) == 1 {
+			dir := strings.TrimSpace(a.newSessionDir.Value())
+			if dir == "" {
+				dir, _ = os.Getwd()
+			}
+			a.newSession = false
+			return a.launchNewSession(a.enabledAgents[0], dir)
 		}
-		a.newSession = false
-		claudeBin, err := exec.LookPath("claude")
-		if err != nil {
-			return a, nil
-		}
-		c := exec.Command(claudeBin)
-		c.Dir = dir
-		return a, tea.ExecProcess(c, func(err error) tea.Msg { return tea.Quit() })
+		// Show agent picker
+		a.agentPicker = true
+		a.newSessionAgent = 0
+		return a, nil
 	}
 	var cmd tea.Cmd
 	a.newSessionDir, cmd = a.newSessionDir.Update(msg)
 	return a, cmd
+}
+
+func (a App) launchNewSession(agent model.Agent, dir string) (tea.Model, tea.Cmd) {
+	var bin string
+	var args []string
+	var err error
+
+	switch agent {
+	case model.AgentCodex:
+		bin, err = exec.LookPath("codex")
+		if err != nil {
+			a.statusMsg = "codex not found in PATH"
+			return a, statusClearCmd()
+		}
+	case model.AgentGemini:
+		bin, err = exec.LookPath("gemini")
+		if err != nil {
+			a.statusMsg = "gemini not found in PATH"
+			return a, statusClearCmd()
+		}
+	default:
+		bin, err = exec.LookPath("claude")
+		if err != nil {
+			a.statusMsg = "claude not found in PATH"
+			return a, statusClearCmd()
+		}
+		if a.cfg.Model != "" {
+			args = append(args, "--model", a.cfg.Model)
+		}
+	}
+
+	c := exec.Command(bin, args...)
+	c.Dir = dir
+	return a, tea.ExecProcess(c, func(err error) tea.Msg { return tea.Quit() })
 }
 
 func (a App) startRename() (tea.Model, tea.Cmd) {
@@ -354,6 +498,7 @@ func (a App) updateRename(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if name != "" {
 					a.renames[s.ID] = name
 					config.SaveRenames(a.renames)
+					claude.WriteRename(a.claudeDir, *s, name)
 					for i := range a.list.sessions {
 						if a.list.sessions[i].ID == s.ID {
 							a.list.sessions[i].Name = name

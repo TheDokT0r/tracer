@@ -60,16 +60,26 @@ func (d detailView) headerView() string {
 
 	b.WriteString(titleStyle.Render(d.session.Name))
 	b.WriteString("\n\n")
+	b.WriteString(labelStyle.Render("Agent") + valueStyle.Render(d.session.Agent.DisplayName()) + "\n")
 	b.WriteString(labelStyle.Render("Session ID") + valueStyle.Render(d.session.ID) + "\n")
 	b.WriteString(labelStyle.Render("Date") + valueStyle.Render(d.session.StartedAt.Format("2006-01-02 15:04")) + "\n")
 	b.WriteString(labelStyle.Render("Directory") + valueStyle.Render(dir) + "\n")
-	b.WriteString(labelStyle.Render("Branch") + valueStyle.Render(d.session.Branch) + "\n")
+	if d.session.Branch != "" && d.session.Branch != "-" {
+		b.WriteString(labelStyle.Render("Branch") + valueStyle.Render(d.session.Branch) + "\n")
+	}
+	if d.session.ModelID != "" {
+		b.WriteString(labelStyle.Render("Model") + valueStyle.Render(d.session.ModelID) + "\n")
+	}
 	b.WriteString(labelStyle.Render("Messages") + valueStyle.Render(fmt.Sprintf(
 		"%d total (%d user, %d assistant)",
 		d.session.MessageCount, d.session.UserMsgs, d.session.AssistantMsgs,
 	)) + "\n")
-	b.WriteString(labelStyle.Render("Context") + progressBar + " " + valueStyle.Render(pctLabel) + "\n")
-	b.WriteString(labelStyle.Render("Output") + valueStyle.Render(outputK+" tokens") + "\n")
+	if d.session.ContextTokens > 0 {
+		b.WriteString(labelStyle.Render("Context") + progressBar + " " + valueStyle.Render(pctLabel) + "\n")
+	}
+	if d.session.OutputTokens > 0 {
+		b.WriteString(labelStyle.Render("Output") + valueStyle.Render(outputK+" tokens") + "\n")
+	}
 	b.WriteString("\n")
 	b.WriteString(strings.Repeat("─", d.width) + "\n")
 
@@ -79,19 +89,17 @@ func (d detailView) headerView() string {
 func (d detailView) conversationContent() string {
 	var b strings.Builder
 
+	assistantLabel := d.session.Agent.DisplayName() + ": "
+
 	for i, msg := range d.messages {
-		content := msg.Content
-		if len([]rune(content)) > 500 {
-			content = string([]rune(content)[:500]) + "..."
-		}
-		content = strings.ReplaceAll(content, "\r\n", "\n")
+		content := strings.ReplaceAll(msg.Content, "\r\n", "\n")
 
 		switch msg.Role {
 		case "user":
 			b.WriteString(userStyle.Render("You: "))
 			b.WriteString(content)
 		case "assistant":
-			b.WriteString(assistantStyle.Render("Claude: "))
+			b.WriteString(assistantStyle.Render(assistantLabel))
 			b.WriteString(content)
 		}
 

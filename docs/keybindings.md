@@ -76,11 +76,20 @@
 
 ## Settings
 
-| Key                  | Action       |
-|----------------------|--------------|
-| `up`/`down` or `k`/`j` | Navigate  |
+| Key                  | Action                    |
+|----------------------|---------------------------|
+| `up`/`down` or `k`/`j` | Navigate               |
 | `left`/`right` or `h`/`l` or `enter` | Change value |
-| `esc` / `q`         | Save & exit  |
+| `⌘+s` / `ctrl+s`    | Save                      |
+| `esc` / `q`          | Exit (prompts if unsaved) |
+
+## Agent Picker (New Session)
+
+| Key         | Action       |
+|-------------|--------------|
+| `left`/`right` | Select agent |
+| `enter`     | Confirm      |
+| `esc`       | Cancel       |
 
 ## Command Palette
 

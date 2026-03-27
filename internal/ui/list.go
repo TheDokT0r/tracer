@@ -96,6 +96,9 @@ func (lv *listView) rebuildTable() {
 	if lv.cfg.ShowModel {
 		numCols++
 	}
+	if lv.cfg.ShowAgent {
+		numCols++
+	}
 	numCols += len(visibleCustom)
 	cellPadding := 2 * numCols
 
@@ -110,6 +113,10 @@ func (lv *listView) rebuildTable() {
 		remaining -= dateWidth
 	}
 
+	agentWidth := 10
+	if lv.cfg.ShowAgent {
+		remaining -= agentWidth
+	}
 	modelWidth := 20
 	if lv.cfg.ShowModel {
 		remaining -= modelWidth
@@ -146,6 +153,9 @@ func (lv *listView) rebuildTable() {
 
 	// Build columns
 	cols := []table.Column{{Title: "Name", Width: nameWidth}}
+	if lv.cfg.ShowAgent {
+		cols = append(cols, table.Column{Title: "Agent", Width: agentWidth})
+	}
 	if lv.cfg.ShowDate {
 		cols = append(cols, table.Column{Title: "Date", Width: dateWidth})
 	}
@@ -171,10 +181,16 @@ func (lv *listView) rebuildTable() {
 			dir = "~" + dir[len(home):]
 		}
 		name := s.Name
+		if !lv.cfg.ShowAgent {
+			name = agentPrefix(s.Agent) + name
+		}
 		if lv.pins[s.ID] {
 			name = "* " + name
 		}
 		row := table.Row{truncate(name, nameWidth)}
+		if lv.cfg.ShowAgent {
+			row = append(row, string(s.Agent))
+		}
 		if lv.cfg.ShowDate {
 			row = append(row, s.StartedAt.Format("2006-01-02 15:04"))
 		}
@@ -290,6 +306,17 @@ func removeByID(sessions []model.Session, id string) []model.Session {
 		}
 	}
 	return result
+}
+
+func agentPrefix(agent model.Agent) string {
+	switch agent {
+	case model.AgentCodex:
+		return "[codex] "
+	case model.AgentGemini:
+		return "[gemini] "
+	default:
+		return ""
+	}
 }
 
 func shortModel(id string) string {

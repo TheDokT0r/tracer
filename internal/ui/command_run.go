@@ -8,7 +8,9 @@ import (
 	"strconv"
 	"strings"
 
+	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
+	"tracer/internal/claude"
 	"tracer/internal/config"
 )
 
@@ -103,8 +105,24 @@ func defaultRegistry() *registry {
 			Contexts: []viewState{viewList},
 			Run: func(a *App, args []string) tea.Cmd {
 				if len(args) > 0 {
-					_, cmd := a.startSessionInDir(args[0])
-					return cmd
+					// Pre-fill the dir and start the flow
+					agents := a.getEnabledAgents()
+					if len(agents) == 0 {
+						a.statusMsg = "No agents enabled"
+						return statusClearCmd()
+					}
+					if len(agents) == 1 {
+						_, cmd := a.launchNewSession(agents[0], args[0])
+						return cmd
+					}
+					a.enabledAgents = agents
+					ti := textinput.New()
+					ti.SetValue(args[0])
+					a.newSessionDir = ti
+					a.newSession = true
+					a.agentPicker = true
+					a.newSessionAgent = 0
+					return nil
 				}
 				_, cmd := a.startNewSession()
 				return cmd
@@ -135,6 +153,7 @@ func defaultRegistry() *registry {
 				if s := a.list.selectedSession(); s != nil {
 					a.renames[s.ID] = name
 					config.SaveRenames(a.renames)
+					claude.WriteRename(a.claudeDir, *s, name)
 					for i := range a.list.sessions {
 						if a.list.sessions[i].ID == s.ID {
 							a.list.sessions[i].Name = name
@@ -812,6 +831,10 @@ func (a *App) runSet(key, value string) tea.Cmd {
 		a.list.rebuildTable()
 	case "show_model":
 		a.cfg.ShowModel = parseBool(value)
+		a.list.cfg = a.cfg
+		a.list.rebuildTable()
+	case "show_agent":
+		a.cfg.ShowAgent = parseBool(value)
 		a.list.cfg = a.cfg
 		a.list.rebuildTable()
 	case "model":

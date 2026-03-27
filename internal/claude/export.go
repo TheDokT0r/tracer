@@ -21,12 +21,13 @@ func ExportMarkdown(session model.Session, messages []model.Message) (string, er
 	writeMetadataTable(&b, session)
 	b.WriteString("\n---\n\n")
 
+	agentName := session.Agent.DisplayName()
 	for i, msg := range messages {
 		switch msg.Role {
 		case "user":
 			b.WriteString("## You\n\n")
 		case "assistant":
-			b.WriteString("## Claude\n\n")
+			b.WriteString("## " + agentName + "\n\n")
 		}
 		b.WriteString(msg.Content)
 		if i < len(messages)-1 {
@@ -80,6 +81,7 @@ func ExportHTML(session model.Session, messages []model.RichMessage) (string, er
 func writeMetadataTable(b *strings.Builder, s model.Session) {
 	b.WriteString("| Field | Value |\n")
 	b.WriteString("|-------|-------|\n")
+	b.WriteString(fmt.Sprintf("| Agent | %s |\n", s.Agent.DisplayName()))
 	b.WriteString(fmt.Sprintf("| Session ID | `%s` |\n", s.ID))
 	b.WriteString(fmt.Sprintf("| Date | %s |\n", s.StartedAt.Format("2006-01-02 15:04")))
 	b.WriteString(fmt.Sprintf("| Directory | %s |\n", s.Directory))
@@ -104,7 +106,8 @@ func writeHTMLMetadata(b *strings.Builder, s model.Session) {
 	item := func(label, value string) {
 		b.WriteString(`<span><span class="meta-label">` + label + `</span> ` + html.EscapeString(value) + `</span>`)
 	}
-	item("", s.StartedAt.Format("Jan 2, 2006 15:04"))
+	item("", s.Agent.DisplayName())
+	item("·", s.StartedAt.Format("Jan 2, 2006 15:04"))
 	item("·", s.Directory)
 	if s.Branch != "" && s.Branch != "-" {
 		item("·", s.Branch)

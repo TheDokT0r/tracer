@@ -1,6 +1,6 @@
 # CLI
 
-Run `tracer` with no arguments to launch the TUI. Subcommands are available for specific tasks.
+Run `tracer` with no arguments to launch the TUI. Tracer scans sessions from Claude Code, Codex CLI, and Gemini CLI in parallel and displays them in a unified list. Subcommands are available for specific tasks.
 
 ## Usage
 

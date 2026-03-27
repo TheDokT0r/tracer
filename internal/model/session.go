@@ -5,6 +5,27 @@ import (
 	"time"
 )
 
+// Agent identifies which AI coding tool owns a session.
+type Agent string
+
+const (
+	AgentClaude Agent = "claude"
+	AgentCodex  Agent = "codex"
+	AgentGemini Agent = "gemini"
+)
+
+// DisplayName returns the human-readable name for this agent.
+func (a Agent) DisplayName() string {
+	switch a {
+	case AgentCodex:
+		return "Codex"
+	case AgentGemini:
+		return "Gemini"
+	default:
+		return "Claude"
+	}
+}
+
 // ContextWindows maps model ID prefixes to their max token counts.
 var ContextWindows = map[string]int{
 	"claude-opus-4":     200000,
@@ -15,13 +36,18 @@ var ContextWindows = map[string]int{
 	"claude-haiku-4-5":  200000,
 	"claude-3-5-sonnet": 200000,
 	"claude-3-5-haiku":  200000,
+	"gpt-5":             258400,
+	"gpt-5.4":           258400,
+	"gemini-3":          1000000,
+	"gemini-2":          1000000,
 }
 
 const DefaultContextWindow = 200000
 const ExtendedContextWindow = 1000000
 
-// Session holds metadata for one Claude Code session.
+// Session holds metadata for one AI coding session.
 type Session struct {
+	Agent         Agent
 	ID            string
 	Name          string    // First user message, truncated
 	Directory     string    // Working directory
@@ -35,6 +61,7 @@ type Session struct {
 	OutputTokens  int
 	ModelID       string // For determining context window
 	ProjectPath   string // Encoded project path (for file location)
+	FilePath      string // Full path to session file (for non-Claude agents)
 }
 
 // Message is a simplified conversation entry for the detail view.

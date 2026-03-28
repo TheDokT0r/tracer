@@ -10,7 +10,6 @@ import (
 
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
-	"tracer/internal/claude"
 	"tracer/internal/config"
 )
 
@@ -153,7 +152,7 @@ func defaultRegistry() *registry {
 				if s := a.list.selectedSession(); s != nil {
 					a.renames[s.ID] = name
 					config.SaveRenames(a.renames)
-					claude.WriteRename(a.claudeDir, *s, name)
+					a.writeRename(*s, name)
 					for i := range a.list.sessions {
 						if a.list.sessions[i].ID == s.ID {
 							a.list.sessions[i].Name = name

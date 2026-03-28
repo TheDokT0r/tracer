@@ -9,11 +9,8 @@ import (
 
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
-	"tracer/internal/claude"
-	"tracer/internal/codex"
 	"tracer/internal/config"
 	"tracer/internal/export"
-	"tracer/internal/gemini"
 	"tracer/internal/model"
 )
 
@@ -78,7 +75,7 @@ func (a App) updateSessionList(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if a.cfg.ConfirmDelete {
 					a.confirmDelete = true
 				} else {
-					claude.DeleteSession(a.claudeDir, *s)
+					a.deleteSession(*s)
 					a.list.removeSession(s.ID)
 				}
 			}
@@ -127,7 +124,7 @@ func (a App) updateSessionDetail(msg tea.Msg) (tea.Model, tea.Cmd) {
 				a.confirmDelete = true
 			} else {
 				if s := a.list.selectedSession(); s != nil {
-					claude.DeleteSession(a.claudeDir, *s)
+					a.deleteSession(*s)
 					a.list.removeSession(s.ID)
 					a.view = viewList
 				}
@@ -152,16 +149,11 @@ func (a App) openSessionDetail() (tea.Model, tea.Cmd) {
 	if s == nil {
 		return a, nil
 	}
-	var messages []model.Message
-	var err error
-	switch s.Agent {
-	case model.AgentCodex:
-		messages, err = codex.LoadSessionDetail(s.FilePath, s)
-	case model.AgentGemini:
-		messages, err = gemini.LoadSessionDetail(s.FilePath, s)
-	default:
-		messages, err = claude.LoadSessionDetail(a.claudeDir, s)
+	p := a.provider(s.Agent)
+	if p == nil {
+		return a, nil
 	}
+	messages, err := p.LoadDetail(s)
 	if err != nil {
 		return a, nil
 	}
@@ -175,35 +167,15 @@ func (a App) resumeSession() (tea.Model, tea.Cmd) {
 	if s == nil {
 		return a, nil
 	}
-
-	var bin string
-	var args []string
-	var err error
-
-	switch s.Agent {
-	case model.AgentCodex:
-		bin, err = exec.LookPath("codex")
-		if err != nil {
-			return a, nil
-		}
-		args = []string{"resume", s.ID}
-	case model.AgentGemini:
-		a.statusMsg = "Gemini CLI does not support session resume"
-		return a, statusClearCmd()
-	default:
-		bin, err = exec.LookPath("claude")
-		if err != nil {
-			return a, nil
-		}
-		args = []string{"--resume", s.ID}
-		if a.cfg.Model != "" {
-			args = append(args, "--model", a.cfg.Model)
-		}
-		if s.Name != "" {
-			args = append(args, "--name", s.Name)
-		}
+	p := a.provider(s.Agent)
+	if p == nil {
+		return a, nil
 	}
-
+	bin, args, ok := p.ResumeArgs(*s)
+	if !ok {
+		a.statusMsg = s.Agent.DisplayName() + " does not support session resume"
+		return a, statusClearCmd()
+	}
 	c := exec.Command(bin, args...)
 	c.Dir = s.Directory
 	return a, tea.ExecProcess(c, func(err error) tea.Msg { return tea.Quit() })
@@ -214,35 +186,15 @@ func (a App) forkSession() (tea.Model, tea.Cmd) {
 	if s == nil {
 		return a, nil
 	}
-
-	var bin string
-	var args []string
-	var err error
-
-	switch s.Agent {
-	case model.AgentCodex:
-		bin, err = exec.LookPath("codex")
-		if err != nil {
-			return a, nil
-		}
-		args = []string{"fork", s.ID}
-	case model.AgentGemini:
-		a.statusMsg = "Gemini CLI does not support session fork"
-		return a, statusClearCmd()
-	default:
-		bin, err = exec.LookPath("claude")
-		if err != nil {
-			return a, nil
-		}
-		args = []string{"--resume", s.ID, "--fork-session"}
-		if a.cfg.Model != "" {
-			args = append(args, "--model", a.cfg.Model)
-		}
-		if s.Name != "" {
-			args = append(args, "--name", s.Name)
-		}
+	p := a.provider(s.Agent)
+	if p == nil {
+		return a, nil
 	}
-
+	bin, args, ok := p.ForkArgs(*s)
+	if !ok {
+		a.statusMsg = s.Agent.DisplayName() + " does not support session fork"
+		return a, statusClearCmd()
+	}
 	c := exec.Command(bin, args...)
 	c.Dir = s.Directory
 	return a, tea.ExecProcess(c, func(err error) tea.Msg { return tea.Quit() })
@@ -293,12 +245,12 @@ func (a App) exportMarkdown() (tea.Model, tea.Cmd) {
 func (a App) exportHTML() (tea.Model, tea.Cmd) {
 	var messages []model.RichMessage
 
-	// Rich conversation (with tool use, images, thinking) only available for Claude
-	if a.detail.session.Agent == model.AgentClaude {
-		messages, _ = claude.LoadRichConversation(a.claudeDir, a.detail.session)
+	// Try rich messages from the provider (images, tool use, thinking)
+	if p := a.provider(a.detail.session.Agent); p != nil {
+		messages, _ = p.LoadRichMessages(a.detail.session)
 	}
 
-	// Fall back to simple messages for non-Claude or on error
+	// Fall back to simple messages
 	if len(messages) == 0 {
 		for _, m := range a.detail.messages {
 			if m.Content != "" {
@@ -438,34 +390,16 @@ func (a App) updateNewSession(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 }
 
 func (a App) launchNewSession(agent model.Agent, dir string) (tea.Model, tea.Cmd) {
-	var bin string
-	var args []string
-	var err error
-
-	switch agent {
-	case model.AgentCodex:
-		bin, err = exec.LookPath("codex")
-		if err != nil {
-			a.statusMsg = "codex not found in PATH"
-			return a, statusClearCmd()
-		}
-	case model.AgentGemini:
-		bin, err = exec.LookPath("gemini")
-		if err != nil {
-			a.statusMsg = "gemini not found in PATH"
-			return a, statusClearCmd()
-		}
-	default:
-		bin, err = exec.LookPath("claude")
-		if err != nil {
-			a.statusMsg = "claude not found in PATH"
-			return a, statusClearCmd()
-		}
-		if a.cfg.Model != "" {
-			args = append(args, "--model", a.cfg.Model)
-		}
+	p := a.provider(agent)
+	if p == nil {
+		a.statusMsg = agent.DisplayName() + " provider not available"
+		return a, statusClearCmd()
 	}
-
+	bin, args := p.NewArgs(dir)
+	if bin == "" {
+		a.statusMsg = agent.DisplayName() + " not found in PATH"
+		return a, statusClearCmd()
+	}
 	c := exec.Command(bin, args...)
 	c.Dir = dir
 	return a, tea.ExecProcess(c, func(err error) tea.Msg { return tea.Quit() })
@@ -499,7 +433,7 @@ func (a App) updateRename(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if name != "" {
 					a.renames[s.ID] = name
 					config.SaveRenames(a.renames)
-					claude.WriteRename(a.claudeDir, *s, name)
+					a.writeRename(*s, name)
 					for i := range a.list.sessions {
 						if a.list.sessions[i].ID == s.ID {
 							a.list.sessions[i].Name = name

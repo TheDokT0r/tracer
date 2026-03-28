@@ -12,7 +12,6 @@ import (
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 	"tracer/internal/ccsettings"
-	"tracer/internal/claude"
 	"tracer/internal/config"
 	"tracer/internal/model"
 	skillspkg "tracer/internal/skills"
@@ -32,6 +31,7 @@ const (
 
 type App struct {
 	claudeDir     string
+	providers     map[model.Agent]model.Provider
 	cfg           config.Config
 	tab           tabBar
 	view          viewState
@@ -66,9 +66,10 @@ type App struct {
 	height        int
 }
 
-func NewApp(claudeDir string, sessions []model.Session, pins map[string]bool, cfg config.Config, renames map[string]string, skills []skillspkg.Skill, settingsFiles []ccsettings.SettingsFile) App {
+func NewApp(claudeDir string, providers map[model.Agent]model.Provider, sessions []model.Session, pins map[string]bool, cfg config.Config, renames map[string]string, skills []skillspkg.Skill, settingsFiles []ccsettings.SettingsFile) App {
 	return App{
 		claudeDir:   claudeDir,
+		providers:   providers,
 		cfg:         cfg,
 		renames:     renames,
 		tab:         tabBar{active: TabSessions},
@@ -271,7 +272,7 @@ func (a *App) executeDelete() {
 	switch a.view {
 	case viewList, viewDetail:
 		if s := a.list.selectedSession(); s != nil {
-			claude.DeleteSession(a.claudeDir, *s)
+			a.deleteSession(*s)
 			a.list.removeSession(s.ID)
 			if a.view == viewDetail {
 				a.view = viewList
@@ -386,6 +387,22 @@ func statusClearCmd() tea.Cmd {
 	return tea.Tick(3*time.Second, func(t time.Time) tea.Msg {
 		return statusClearMsg{}
 	})
+}
+
+func (a App) provider(agent model.Agent) model.Provider {
+	return a.providers[agent]
+}
+
+func (a App) deleteSession(s model.Session) {
+	if p := a.provider(s.Agent); p != nil {
+		p.DeleteSession(s)
+	}
+}
+
+func (a App) writeRename(s model.Session, name string) {
+	if p := a.provider(s.Agent); p != nil {
+		p.WriteRename(s, name)
+	}
 }
 
 func openEditor(path string) tea.Cmd {

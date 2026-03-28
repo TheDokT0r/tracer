@@ -160,36 +160,36 @@ func main() {
 	}
 
 	claudeDir := filepath.Join(home, ".claude")
-	codexDir := filepath.Join(home, ".codex")
-	geminiDir := filepath.Join(home, ".gemini")
 
-	// Scan sessions from all agents in parallel
+	// Build providers for enabled agents
+	providers := make(map[model.Agent]model.Provider)
+	if cfg.AgentClaude {
+		providers[model.AgentClaude] = claude.NewProvider(claudeDir, cfg.Model)
+	}
+	if cfg.AgentCodex {
+		providers[model.AgentCodex] = codex.NewProvider(filepath.Join(home, ".codex"))
+	}
+	if cfg.AgentGemini {
+		providers[model.AgentGemini] = gemini.NewProvider(filepath.Join(home, ".gemini"))
+	}
+
+	// Scan sessions from all providers in parallel
 	var sessions []model.Session
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 
-	scanAgent := func(fn func() ([]model.Session, error)) {
+	for _, p := range providers {
 		wg.Add(1)
-		go func() {
+		go func(p model.Provider) {
 			defer wg.Done()
-			s, err := fn()
+			s, err := p.Scan()
 			if err != nil || len(s) == 0 {
 				return
 			}
 			mu.Lock()
 			sessions = append(sessions, s...)
 			mu.Unlock()
-		}()
-	}
-
-	if cfg.AgentClaude {
-		scanAgent(func() ([]model.Session, error) { return claude.ScanSessions(claudeDir) })
-	}
-	if cfg.AgentCodex {
-		scanAgent(func() ([]model.Session, error) { return codex.ScanSessions(codexDir) })
-	}
-	if cfg.AgentGemini {
-		scanAgent(func() ([]model.Session, error) { return gemini.ScanSessions(geminiDir) })
+		}(p)
 	}
 	wg.Wait()
 
@@ -215,7 +215,7 @@ func main() {
 	allSkills, _ := skills.ScanSkills(claudeDir)
 	settingsFiles := ccsettings.ScanSettings(claudeDir)
 
-	app := ui.NewApp(claudeDir, sessions, pins, cfg, renames, allSkills, settingsFiles)
+	app := ui.NewApp(claudeDir, providers, sessions, pins, cfg, renames, allSkills, settingsFiles)
 	p := tea.NewProgram(app)
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)

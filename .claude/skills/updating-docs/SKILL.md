@@ -1,6 +1,6 @@
 ---
 name: updating-docs
-description: Checks and updates AGENTS.md, README.md, and the man page (tracer.1) when features are added or changed. Use after adding new features, modifying existing features, changing CLI flags, adding commands, or altering project structure. Triggers on any code change that affects user-facing behavior, CLI interface, project architecture, or tab/view functionality.
+description: Checks and updates AGENTS.md, README.md, docs/, and the man page (tracer.1) when features are added or changed. Use after adding new features, modifying existing features, changing CLI flags, adding commands, or altering project structure. Triggers on any code change that affects user-facing behavior, CLI interface, project architecture, or tab/view functionality.
 ---
 
 # Updating Documentation
@@ -30,7 +30,17 @@ Review each file and update **only the sections affected** by the change:
 - Installation or usage instructions
 - CLI flags and options
 
-### 3. tracer.1 (man page)
+### 3. docs/ (feature documentation)
+- `docs/sessions.md`, `docs/skills.md`, `docs/permissions.md` — tab features
+- `docs/commands.md` — command palette + user commands
+- `docs/custom-columns.md` — user-defined columns
+- `docs/themes.md`, `docs/settings.md` — configuration
+- `docs/export.md`, `docs/cli.md` — export and CLI
+- `docs/keybindings.md` — all keyboard shortcuts
+- Update the relevant doc file if you changed behavior it covers
+- If you added a wholly new feature, consider whether it needs its own doc file
+
+### 4. tracer.1 (man page)
 - Command synopsis and description
 - Flag/option documentation
 - Feature descriptions in the DESCRIPTION section
@@ -44,7 +54,7 @@ Run `git diff` (staged + unstaged) to get the full picture of code changes. Unde
 
 ### Step 2: Triage — do docs need updating?
 
-Read AGENTS.md, README.md, and tracer.1. For each file, ask:
+Read AGENTS.md, README.md, relevant `docs/` files, and tracer.1. For each file, ask:
 - Is there anything in the current changes that is **not already documented** or that **contradicts** what's documented?
 - Would a user or contributor be misled by the current docs after this change lands?
 

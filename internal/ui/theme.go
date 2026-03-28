@@ -2,8 +2,10 @@ package ui
 
 import (
 	"image/color"
+	"sort"
 
 	"charm.land/lipgloss/v2"
+	"tracer/internal/config"
 )
 
 // Theme holds all colors used by the UI.
@@ -180,9 +182,48 @@ var Themes = map[string]Theme{
 	},
 }
 
-// ThemeNames returns theme names in display order.
+var builtinThemeOrder = []string{"default", "minimal", "mono", "ocean", "rose", "forest", "sunset", "nord", "dracula", "solarized", "monokai", "catppuccin"}
+
+// LoadUserThemes merges user-defined themes from ~/.config/tracer/themes/ into the Themes map.
+func LoadUserThemes() {
+	for name, ut := range config.ScanUserThemes() {
+		Themes[name] = Theme{
+			Name:     name,
+			Primary:  lipgloss.Color(ut.Primary),
+			Accent:   lipgloss.Color(ut.Accent),
+			Text:     lipgloss.Color(ut.Text),
+			Bright:   lipgloss.Color(ut.Bright),
+			Muted:    lipgloss.Color(ut.Muted),
+			Dim:      lipgloss.Color(ut.Dim),
+			Red:      lipgloss.Color(ut.Red),
+			Green:    lipgloss.Color(ut.Green),
+			SelectBg: lipgloss.Color(ut.SelectBg),
+			SelectFg: lipgloss.Color(ut.SelectFg),
+		}
+	}
+}
+
+// ThemeNames returns theme names in display order (built-ins first, then user themes sorted).
 func ThemeNames() []string {
-	return []string{"default", "minimal", "mono", "ocean", "rose", "forest", "sunset", "nord", "dracula", "solarized", "monokai", "catppuccin"}
+	names := make([]string, 0, len(builtinThemeOrder))
+	names = append(names, builtinThemeOrder...)
+	var userNames []string
+	for name := range Themes {
+		if !isBuiltin(name) {
+			userNames = append(userNames, name)
+		}
+	}
+	sort.Strings(userNames)
+	return append(names, userNames...)
+}
+
+func isBuiltin(name string) bool {
+	for _, n := range builtinThemeOrder {
+		if n == name {
+			return true
+		}
+	}
+	return false
 }
 
 // ApplyTheme updates all package-level styles to use the given theme.

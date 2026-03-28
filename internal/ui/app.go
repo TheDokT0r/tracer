@@ -174,6 +174,12 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (a App) handleEditorFinished() (tea.Model, tea.Cmd) {
+	// Reload user themes in case a theme file was edited
+	LoadUserThemes()
+	if t, ok := Themes[a.cfg.Theme]; ok {
+		ApplyTheme(t)
+	}
+
 	if a.pendingRescan {
 		a.pendingRescan = false
 		a.rescanCommands()

@@ -330,12 +330,15 @@ func defaultRegistry() *registry {
 			},
 		},
 		{
-			Name: "theme", Description: "Switch theme",
+			Name: "theme", Description: "Switch or manage themes",
 			Args: []CommandArg{{
 				Name: "name", Required: true,
 				Options: func(a *App) []Completion {
 					names := ThemeNames()
 					var comps []Completion
+					comps = append(comps, Completion{Value: "new", Description: "Create custom theme"})
+					comps = append(comps, Completion{Value: "new-ai", Description: "Create theme with AI"})
+					comps = append(comps, Completion{Value: "edit", Description: "Edit custom theme"})
 					for _, n := range names {
 						comps = append(comps, Completion{Value: n})
 					}
@@ -345,10 +348,77 @@ func defaultRegistry() *registry {
 			Contexts: allExceptSettings,
 			Run: func(a *App, args []string) tea.Cmd {
 				if len(args) == 0 {
-					a.statusMsg = "Usage: theme <name>"
+					a.statusMsg = "Usage: theme <name|new|edit>"
 					return statusClearCmd()
 				}
-				return a.runSet("theme", args[0])
+				switch args[0] {
+				case "new":
+					if len(args) < 2 {
+						a.statusMsg = "Usage: theme new <name>"
+						return statusClearCmd()
+					}
+					name := args[1]
+					if _, ok := Themes[name]; ok {
+						a.statusMsg = "Theme already exists: " + name
+						return statusClearCmd()
+					}
+					path, err := config.ScaffoldTheme(name)
+					if err != nil {
+						a.statusMsg = "Failed: " + err.Error()
+						return statusClearCmd()
+					}
+					a.statusMsg = "Created theme: " + name
+					LoadUserThemes()
+					return openEditor(path)
+				case "new-ai":
+					if len(args) < 2 {
+						a.statusMsg = "Usage: theme new-ai <name> [claude|codex|gemini]"
+						return statusClearCmd()
+					}
+					name := args[1]
+					if _, ok := Themes[name]; ok {
+						a.statusMsg = "Theme already exists: " + name
+						return statusClearCmd()
+					}
+					path, err := config.ScaffoldTheme(name)
+					if err != nil {
+						a.statusMsg = "Failed: " + err.Error()
+						return statusClearCmd()
+					}
+					provider := ""
+					if len(args) >= 3 {
+						provider = args[2]
+					}
+					aiBin, err := findAICLI(provider)
+					if err != nil {
+						a.statusMsg = err.Error()
+						return statusClearCmd()
+					}
+					a.statusMsg = "Creating theme: " + name
+					prompt := newAIThemePrompt(name, path)
+					c := exec.Command(aiBin, prompt)
+					c.Dir = filepath.Dir(path)
+					return tea.ExecProcess(c, func(err error) tea.Msg {
+						return editorFinishedMsg{}
+					})
+				case "edit":
+					name := ""
+					if len(args) >= 2 {
+						name = args[1]
+					}
+					if name == "" {
+						a.statusMsg = "Usage: theme edit <name>"
+						return statusClearCmd()
+					}
+					path := config.ThemePath(name)
+					if _, err := os.Stat(path); err != nil {
+						a.statusMsg = "Custom theme not found: " + name
+						return statusClearCmd()
+					}
+					return openEditor(path)
+				default:
+					return a.runSet("theme", args[0])
+				}
 			},
 		},
 		{
@@ -469,7 +539,7 @@ func defaultRegistry() *registry {
 						return []Completion{
 							{Value: "list", Description: "List user commands"},
 							{Value: "new", Description: "Create new command"},
-							{Value: "new-ai", Description: "Create with Claude AI"},
+							{Value: "new-ai", Description: "Create with AI"},
 							{Value: "edit", Description: "Edit a command"},
 							{Value: "delete", Description: "Delete a command"},
 						}
@@ -494,6 +564,20 @@ func defaultRegistry() *registry {
 								comps = append(comps, Completion{Value: n})
 							}
 							return comps
+						}
+						return nil
+					},
+				},
+				{
+					Name: "provider", Required: false,
+					Options: func(a *App) []Completion {
+						if a == nil || !a.commandMode {
+							return nil
+						}
+						input := a.cmdInput.input.Value()
+						_, args := a.cmdRegistry.resolve(input)
+						if len(args) > 0 && args[0] == "new-ai" {
+							return aiProviderCompletions()
 						}
 						return nil
 					},
@@ -544,7 +628,7 @@ func defaultRegistry() *registry {
 
 				case "new-ai":
 					if name == "" {
-						a.statusMsg = "Usage: commands new-ai <name>"
+						a.statusMsg = "Usage: commands new-ai <name> [claude|codex|gemini]"
 						return statusClearCmd()
 					}
 					if !config.ValidateCommandName(name) {
@@ -560,14 +644,18 @@ func defaultRegistry() *registry {
 						a.statusMsg = "Failed: " + err.Error()
 						return statusClearCmd()
 					}
-					claudeBin, err := exec.LookPath("claude")
+					provider := ""
+					if len(args) >= 3 {
+						provider = args[2]
+					}
+					aiBin, err := findAICLI(provider)
 					if err != nil {
-						a.statusMsg = "Claude not found in PATH"
+						a.statusMsg = err.Error()
 						return statusClearCmd()
 					}
 					a.statusMsg = "Created command: " + name
 					prompt := newAICommandPrompt(name, cmdDir)
-					c := exec.Command(claudeBin, prompt)
+					c := exec.Command(aiBin, prompt)
 					c.Dir = cmdDir
 					return tea.ExecProcess(c, func(err error) tea.Msg {
 						return userCommandFinishedMsg{}
@@ -621,7 +709,7 @@ func defaultRegistry() *registry {
 						return []Completion{
 							{Value: "list", Description: "List custom columns"},
 							{Value: "new", Description: "Create new column"},
-							{Value: "new-ai", Description: "Create with Claude AI"},
+							{Value: "new-ai", Description: "Create with AI"},
 							{Value: "edit", Description: "Edit a column"},
 							{Value: "delete", Description: "Delete a column"},
 							{Value: "toggle", Description: "Show/hide a column"},
@@ -647,6 +735,20 @@ func defaultRegistry() *registry {
 								comps = append(comps, Completion{Value: n})
 							}
 							return comps
+						}
+						return nil
+					},
+				},
+				{
+					Name: "provider", Required: false,
+					Options: func(a *App) []Completion {
+						if a == nil || !a.commandMode {
+							return nil
+						}
+						input := a.cmdInput.input.Value()
+						_, args := a.cmdRegistry.resolve(input)
+						if len(args) > 0 && args[0] == "new-ai" {
+							return aiProviderCompletions()
 						}
 						return nil
 					},
@@ -697,7 +799,7 @@ func defaultRegistry() *registry {
 
 				case "new-ai":
 					if name == "" {
-						a.statusMsg = "Usage: columns new-ai <name>"
+						a.statusMsg = "Usage: columns new-ai <name> [claude|codex|gemini]"
 						return statusClearCmd()
 					}
 					if !config.ValidateCommandName(name) {
@@ -713,14 +815,18 @@ func defaultRegistry() *registry {
 						a.statusMsg = "Failed: " + err.Error()
 						return statusClearCmd()
 					}
-					claudeBin, err := exec.LookPath("claude")
+					provider := ""
+					if len(args) >= 3 {
+						provider = args[2]
+					}
+					aiBin, err := findAICLI(provider)
 					if err != nil {
-						a.statusMsg = "Claude not found in PATH"
+						a.statusMsg = err.Error()
 						return statusClearCmd()
 					}
 					a.statusMsg = "Created column: " + name
 					prompt := newAIColumnPrompt(name, colDir)
-					c := exec.Command(claudeBin, prompt)
+					c := exec.Command(aiBin, prompt)
 					c.Dir = colDir
 					return tea.ExecProcess(c, func(err error) tea.Msg {
 						return userCommandFinishedMsg{}
@@ -864,6 +970,87 @@ func (a *App) runSet(key, value string) tea.Cmd {
 
 func parseBool(s string) bool {
 	return s == "on" || s == "true" || s == "1" || s == "yes"
+}
+
+// findAICLI returns the path to an AI CLI binary.
+// If preference is set, tries that first. Otherwise tries claude, codex, gemini in order.
+func findAICLI(preference string) (string, error) {
+	if preference != "" {
+		if bin, err := exec.LookPath(preference); err == nil {
+			return bin, nil
+		}
+		return "", fmt.Errorf("%s not found in PATH", preference)
+	}
+	for _, name := range []string{"claude", "codex", "gemini"} {
+		if bin, err := exec.LookPath(name); err == nil {
+			return bin, nil
+		}
+	}
+	return "", fmt.Errorf("no AI CLI found (tried claude, codex, gemini)")
+}
+
+func aiProviderCompletions() []Completion {
+	return []Completion{
+		{Value: "claude", Description: "Use Claude Code"},
+		{Value: "codex", Description: "Use Codex CLI"},
+		{Value: "gemini", Description: "Use Gemini CLI"},
+	}
+}
+
+func newAIThemePrompt(name, path string) string {
+	return fmt.Sprintf(`You are creating a custom color theme called "%s" for tracer, a TUI session manager.
+
+## What you're building
+
+A single JSON file at: %s
+
+The file already exists with default placeholder colors. You need to replace them with colors that match the user's desired aesthetic.
+
+## Theme JSON schema
+
+{
+  "primary": "#hex",    // Main accent color (tab highlights, keybindings, labels, borders)
+  "accent": "#hex",     // Secondary accent (assistant message labels)
+  "text": "#hex",       // Default text color
+  "bright": "#hex",     // Bright/emphasized text (tab bar active text, selected value)
+  "muted": "#hex",      // Muted text (inactive tabs, help descriptions, counts)
+  "dim": "#hex",        // Dimmest text (separators, section headers)
+  "red": "#hex",        // Error messages, delete confirmations, unsaved indicator
+  "green": "#hex",      // User message labels ("You:")
+  "select_bg": "#hex",  // Background color for the selected table row
+  "select_fg": "#hex"   // Text color for the selected table row
+}
+
+## How colors are used in the UI
+
+- **primary**: Tab bar active background, header labels, key hints (e.g. "↑/↓"), filter input, settings cursor
+- **accent**: Assistant name label in conversation view
+- **text**: Session names, setting values, conversation content
+- **bright**: Active tab text, selected setting value text (white on primary bg)
+- **muted**: Inactive tab names, help descriptions, session count, non-selected settings
+- **dim**: Help separators (•), section dividers (──)
+- **red**: Error status messages, delete prompts, "unsaved" indicator
+- **green**: "You:" label in conversation
+- **select_bg**: Selected row background in session/skill/permission tables
+- **select_fg**: Selected row text color
+
+## Design tips
+
+- select_bg should have enough contrast with the terminal background to be clearly visible
+- primary and select_bg are often the same color but don't have to be
+- text should be readable on a dark terminal background
+- muted should be visible but clearly subordinate to text
+- dim should be barely visible — just enough to see separators
+- bright is usually white or near-white
+- For dark themes: use lighter text colors. For light themes: use darker text colors.
+
+## Your task
+
+1. Ask the user what kind of theme they want (color palette, mood, inspiration)
+2. Edit the JSON file with your chosen colors
+3. Make sure all 10 color fields are valid hex codes
+
+Current directory: %s`, name, path, filepath.Dir(path))
 }
 
 func newAIColumnPrompt(name, colDir string) string {

@@ -65,6 +65,7 @@ func main() {
 			os.Exit(0)
 		case "settings":
 			cfg := config.LoadConfig()
+			ui.LoadUserThemes()
 			if t, ok := ui.Themes[cfg.Theme]; ok {
 				ui.ApplyTheme(t)
 			}
@@ -82,6 +83,7 @@ func main() {
 			os.Exit(0)
 		case "theme":
 			cfg := config.LoadConfig()
+			ui.LoadUserThemes()
 			if len(os.Args) > 2 {
 				name := os.Args[2]
 				if _, ok := ui.Themes[name]; !ok {
@@ -129,8 +131,9 @@ func main() {
 		}
 	}
 
-	// Apply theme
+	// Apply theme (load user themes before resolving)
 	cfg := config.LoadConfig()
+	ui.LoadUserThemes()
 	if t, ok := ui.Themes[cfg.Theme]; ok {
 		ui.ApplyTheme(t)
 	}

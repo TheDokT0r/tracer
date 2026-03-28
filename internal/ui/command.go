@@ -68,18 +68,20 @@ func (r *registry) resolve(input string) (*Command, []string) {
 	return best, args
 }
 
-func (r *registry) match(prefix string, ctx viewState) []Command {
-	prefix = strings.TrimSpace(strings.ToLower(prefix))
-	var results []Command
+func (r *registry) match(query string, ctx viewState) []Command {
+	query = strings.TrimSpace(strings.ToLower(query))
+	var prefix, fuzzy []Command
 	for _, cmd := range r.commands {
 		if !cmd.availableIn(ctx) {
 			continue
 		}
-		if prefix == "" || strings.HasPrefix(cmd.Name, prefix) {
-			results = append(results, cmd)
+		if query == "" || strings.HasPrefix(cmd.Name, query) {
+			prefix = append(prefix, cmd)
+		} else if strings.Contains(cmd.Name, query) {
+			fuzzy = append(fuzzy, cmd)
 		}
 	}
-	return results
+	return append(prefix, fuzzy...)
 }
 
 func (r *registry) completions(a *App, input string, ctx viewState) []Completion {
@@ -108,13 +110,16 @@ func (r *registry) completions(a *App, input string, ctx viewState) []Completion
 	options := arg.Options(a)
 	if argIdx < len(args) {
 		partial := strings.ToLower(args[argIdx])
-		var filtered []Completion
+		var prefix, fuzzy []Completion
 		for _, opt := range options {
-			if strings.HasPrefix(strings.ToLower(opt.Value), partial) {
-				filtered = append(filtered, opt)
+			lower := strings.ToLower(opt.Value)
+			if strings.HasPrefix(lower, partial) {
+				prefix = append(prefix, opt)
+			} else if strings.Contains(lower, partial) {
+				fuzzy = append(fuzzy, opt)
 			}
 		}
-		return filtered
+		return append(prefix, fuzzy...)
 	}
 	return options
 }

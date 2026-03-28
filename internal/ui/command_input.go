@@ -18,6 +18,7 @@ type commandInput struct {
 	ctx            viewState
 	suggestions    []Command
 	argSuggestions []Completion
+	argHint        string // e.g. "<name> [provider]" — remaining args hint
 	selected       int
 	history        []string
 	historyIdx     int
@@ -105,15 +106,41 @@ func (ci *commandInput) update(msg tea.KeyPressMsg) (execute bool, cancel bool, 
 func (ci *commandInput) refreshSuggestions() {
 	input := ci.input.Value()
 	ci.selected = 0
+	ci.argHint = ""
 
-	cmd, _ := ci.registry.resolve(input)
+	cmd, args := ci.registry.resolve(input)
 	if cmd != nil && strings.Contains(input, " ") {
 		ci.suggestions = nil
 		ci.argSuggestions = ci.registry.completions(ci.app, input, ci.ctx)
+		ci.argHint = remainingArgsHint(cmd, args, strings.HasSuffix(input, " "))
 	} else {
 		ci.suggestions = ci.registry.match(input, ci.ctx)
 		ci.argSuggestions = nil
 	}
+}
+
+// remainingArgsHint builds a hint for the args not yet filled.
+// e.g. for "commands new-ai deploy" with args [sub, name, provider], shows "[provider]"
+func remainingArgsHint(cmd *Command, args []string, trailingSpace bool) string {
+	var startIdx int
+	if trailingSpace || len(args) == 0 {
+		startIdx = len(args)
+	} else {
+		startIdx = len(args) // current arg is being typed, show from next
+	}
+	if startIdx >= len(cmd.Args) {
+		return ""
+	}
+	var parts []string
+	for i := startIdx; i < len(cmd.Args); i++ {
+		a := cmd.Args[i]
+		if a.Required {
+			parts = append(parts, "<"+a.Name+">")
+		} else {
+			parts = append(parts, "["+a.Name+"]")
+		}
+	}
+	return strings.Join(parts, " ")
 }
 
 func (ci *commandInput) allSuggestions() []Completion {
@@ -122,9 +149,26 @@ func (ci *commandInput) allSuggestions() []Completion {
 	}
 	var comps []Completion
 	for _, s := range ci.suggestions {
-		comps = append(comps, Completion{Value: s.Name, Description: s.Description})
+		desc := argSignature(s) + s.Description
+		comps = append(comps, Completion{Value: s.Name, Description: desc})
 	}
 	return comps
+}
+
+// argSignature builds a short hint like "<name> <value> " from a command's args.
+func argSignature(cmd Command) string {
+	if len(cmd.Args) == 0 {
+		return ""
+	}
+	var parts []string
+	for _, a := range cmd.Args {
+		if a.Required {
+			parts = append(parts, "<"+a.Name+">")
+		} else {
+			parts = append(parts, "["+a.Name+"]")
+		}
+	}
+	return strings.Join(parts, " ") + "  "
 }
 
 func (ci *commandInput) dropdownVisible() bool {
@@ -213,6 +257,8 @@ func (ci *commandInput) viewInput() string {
 	line := ci.input.View()
 	if ghost != "" {
 		line += dimmedStyle.Render(ghost)
+	} else if ci.argHint != "" {
+		line += dimmedStyle.Render(" " + ci.argHint)
 	}
 	return line
 }

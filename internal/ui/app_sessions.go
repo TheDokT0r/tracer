@@ -12,6 +12,7 @@ import (
 	"tracer/internal/claude"
 	"tracer/internal/codex"
 	"tracer/internal/config"
+	"tracer/internal/export"
 	"tracer/internal/gemini"
 	"tracer/internal/model"
 )
@@ -279,7 +280,7 @@ func (a App) exportMarkdown() (tea.Model, tea.Cmd) {
 		a.statusMsg = "No messages to export"
 		return a, statusClearCmd()
 	}
-	path, err := claude.ExportMarkdown(a.detail.session, a.detail.messages)
+	path, err := export.ExportMarkdown(a.detail.session, a.detail.messages)
 	if err != nil {
 		a.statusMsg = "Export failed: " + err.Error()
 		return a, statusClearCmd()
@@ -314,7 +315,7 @@ func (a App) exportHTML() (tea.Model, tea.Cmd) {
 		a.statusMsg = "No messages to export"
 		return a, statusClearCmd()
 	}
-	path, err := claude.ExportHTML(a.detail.session, messages)
+	path, err := export.ExportHTML(a.detail.session, messages)
 	if err != nil {
 		a.statusMsg = "Export failed: " + err.Error()
 		return a, statusClearCmd()

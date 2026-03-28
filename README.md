@@ -1,7 +1,7 @@
 <p align="center">
   <h1 align="center">tracer</h1>
   <p align="center">
-    A terminal UI for managing your <a href="https://docs.anthropic.com/en/docs/claude-code">Claude Code</a> sessions, skills, and permissions.
+    A terminal UI for managing your AI coding sessions across <a href="https://docs.anthropic.com/en/docs/claude-code">Claude Code</a>, <a href="https://github.com/openai/codex">Codex CLI</a>, and <a href="https://github.com/google-gemini/gemini-cli">Gemini CLI</a>.
     <br />
     <br />
     <img src="https://img.shields.io/badge/Go-1.24+-00ADD8?logo=go&logoColor=white" />
@@ -20,7 +20,17 @@
 
 ## Why tracer?
 
-Claude Code stores your sessions as raw JSONL files scattered across `~/.claude/`. tracer gives you a fast, searchable interface to **browse**, **resume**, **fork**, and **manage** all of them — plus your skills and permission rules — without leaving the terminal.
+AI coding tools store sessions as raw files scattered across your home directory. tracer gives you a fast, searchable interface to **browse**, **resume**, **fork**, and **manage** sessions from all your agents in one place — plus skills and permission rules — without leaving the terminal.
+
+### Supported Agents
+
+| Agent | Sessions | Resume | Fork | Skills | Permissions |
+|-------|----------|--------|------|--------|-------------|
+| **Claude Code** | `~/.claude/` | yes | yes | yes | yes |
+| **Codex CLI** | `~/.codex/` | yes | yes | — | — |
+| **Gemini CLI** | `~/.gemini/` | view only | — | — | — |
+
+All agents are scanned in parallel at startup. Enable or disable each in settings.
 
 ## Quick Start
 
@@ -54,21 +64,21 @@ cd tracer && go build -o tracer .
 
 | Action | How |
 |--------|-----|
-| Browse all sessions | Just launch `tracer` |
+| Browse all sessions (all agents) | Just launch `tracer` |
 | Filter by name, directory, or branch | `/` then type |
-| Resume a session | `Enter` |
-| Fork a session (new ID, same conversation) | `f` |
-| Start a new session | `n` |
+| Resume a session | `Enter` (routes to correct agent) |
+| Fork a session | `f` (Claude and Codex) |
+| Start a new session | `n` (pick agent if multiple enabled) |
 | View details (context usage, conversation) | `v` |
 | Rename a session | `r` in detail view |
-| Edit session file | `e` in detail view |
+| Export as Markdown or HTML | `x` in detail view |
 | Pin to top | `p` |
 | Copy session ID | `c` |
 | Delete | `d` |
 
 ### Skills
 
-Press `Tab` to switch to the Skills tab.
+Press `Tab` to switch to the Skills tab. Manages Claude Code skills.
 
 | Action | How |
 |--------|-----|
@@ -82,7 +92,7 @@ Plugin skills are read-only.
 
 ### Permissions
 
-Press `Tab` again to reach the Permissions tab.
+Press `Tab` again to reach the Permissions tab. Manages Claude Code permission rules.
 
 | Action | How |
 |--------|-----|
@@ -111,12 +121,11 @@ Press `:` in any view to open the command palette. Type commands with autocomple
 ```
 :sort name          Sort sessions by name
 :set theme dracula  Switch theme
+:model opus         Set model for Claude sessions
 :export html        Export session as HTML
 :filter react       Filter by "react"
 :help               List all commands
 ```
-
-Dropdown suggestions appear above the input with descriptions. Ghost text (dimmed inline suggestion) can be enabled in settings. Command history persists across sessions — use `Up/Down` to recall previous commands.
 
 ### User Commands
 
@@ -129,8 +138,6 @@ Create custom commands that extend the palette:
 :commands delete deploy     # Delete command
 ```
 
-Commands live in `~/.config/tracer/commands/<name>/` with a `command.json` and script. They can be aliases (shortcuts to other commands) or shell scripts with `status` (show output in bar) or `exec` (full terminal) mode.
-
 ### Custom Columns
 
 Add custom data columns to the session list:
@@ -141,24 +148,16 @@ Add custom data columns to the session list:
 :columns toggle cost       # Show/hide column
 ```
 
-Columns live in `~/.config/tracer/columns/<name>/`. The script receives the session directory as `$1` and outputs one line. Columns populate asynchronously — cells show "..." while loading.
-
 ### Settings
 
-Press `s` or run `tracer settings`.
+Press `s` or run `tracer settings`. Save with `⌘+s` / `ctrl+s`.
 
-| Setting | Default |
-|---------|---------|
-| Theme | default |
-| Sort by | date |
-| Show date column | on |
-| Show directory column | on |
-| Show branch column | on |
-| Confirm before delete | on |
-| Auto-update | off |
-| Command dropdown | on |
-| Ghost suggestions | off |
-| Max suggestions | 8 |
+| Section | Settings |
+|---------|----------|
+| General | Theme, Sort by, Model, Confirm delete, Auto-update |
+| Columns | Date, Directory, Branch, Model, Agent, custom columns |
+| Command Palette | Dropdown, Ghost suggest, Max suggestions |
+| Agents | Claude (on/off), Codex (on/off), Gemini (on/off) |
 
 ## Commands
 
@@ -176,7 +175,7 @@ tracer -v             Print version
 
 Detailed docs for each feature are in the [`docs/`](docs/) directory:
 
-- [Sessions](docs/sessions.md) — browsing, resuming, forking, pinning, renaming
+- [Sessions](docs/sessions.md) — multi-agent browsing, resuming, forking, pinning, renaming
 - [Skills](docs/skills.md) — browsing, creating, editing skills
 - [Permissions](docs/permissions.md) — managing allow/deny rules
 - [Commands](docs/commands.md) — command palette and user-defined commands
@@ -189,9 +188,13 @@ Detailed docs for each feature are in the [`docs/`](docs/) directory:
 
 ## How It Works
 
-tracer reads from `~/.claude/`:
+tracer scans sessions from three sources in parallel:
 
-- **Sessions** — JSONL files in `projects/` scanned in parallel (only first message read for speed)
+- **Claude Code** (`~/.claude/`) — JSONL files in `projects/`, only first message read for speed
+- **Codex CLI** (`~/.codex/`) — JSONL files in `sessions/`, with thread names from `session_index.jsonl`
+- **Gemini CLI** (`~/.gemini/`) — JSON files in `tmp/*/chats/`
+
+Additionally for Claude Code:
 - **Skills** — `skills/`, `commands/`, and `plugins/cache/`
 - **Permissions** — `settings.json` at global, project, and local scopes
 
@@ -200,4 +203,3 @@ Full session details (token counts, conversation history) load on demand. Auto-u
 ## License
 
 MIT
-

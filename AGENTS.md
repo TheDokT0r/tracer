@@ -1,6 +1,6 @@
-# tracer — Claude Code Session, Skill & Settings Manager
+# tracer — Multi-Agent AI Session Manager
 
-A Go CLI TUI for managing Claude Code sessions, skills, and permission settings.
+A Go CLI TUI for managing sessions across Claude Code, Codex CLI, and Gemini CLI — plus Claude skills and permissions.
 
 ## Architecture
 
@@ -10,12 +10,16 @@ tracer/
 ├── tracer.1                        # Man page (embedded into binary via go:embed)
 ├── install.sh                      # Quick install script
 ├── internal/
-│   ├── claude/                     # Session data layer — reads/writes ~/.claude/
+│   ├── claude/                     # Claude Code data layer — reads/writes ~/.claude/
 │   │   ├── parser.go              # JSONL line parser (Entry, RawMsg, Usage, IsRealUserMessage)
-│   │   ├── sessions.go            # ScanSessions (parallel), scanSessionHead, LoadSessionDetails, LoadConversation, loadRenames
+│   │   ├── sessions.go            # ScanSessions (parallel), scanSessionHead, LoadSessionDetail, loadRenames, WriteRename
 │   │   ├── delete.go              # DeleteSession — removes all session artifacts
-│   │   ├── export.go              # ExportMarkdown, ExportHTML — exports session as Markdown or HTML
+│   │   ├── export.go              # ExportMarkdown, ExportHTML — exports any agent's sessions
 │   │   ├── markdown.go            # renderMarkdown — goldmark + chroma markdown-to-HTML pipeline
+│   ├── codex/                     # Codex CLI data layer — reads ~/.codex/
+│   │   └── sessions.go            # ScanSessions, scanSessionHead, LoadSessionDetail, loadThreadNames
+│   ├── gemini/                    # Gemini CLI data layer — reads ~/.gemini/
+│   │   └── sessions.go            # ScanSessions, scanSessionFile, LoadSessionDetail, loadProjectNames
 │   ├── skills/                    # Skill data layer — scans and manages skills
 │   │   ├── model.go               # Skill struct, Source type (user, command, project, plugin)
 │   │   ├── scanner.go             # ScanSkills — scans 4 locations, parses YAML frontmatter
@@ -32,7 +36,7 @@ tracer/
 │   │   ├── pins.go                # Pinned session IDs
 │   │   └── renames.go             # Custom session renames from tracer
 │   ├── model/
-│   │   └── session.go             # Session and Message structs, context window math
+│   │   └── session.go             # Agent type, Session/Message structs, context window math
 │   ├── ui/
 │   │   ├── app.go                 # Top-level Bubbletea model — tab routing, view routing, key dispatch
 │   │   ├── tabs.go                # Tab bar (Sessions / Skills / Permissions)
@@ -85,15 +89,27 @@ Changes are saved immediately to the settings file, preserving all other JSON fi
 
 ### Data Sources
 
-### Data Sources
+#### Sessions (Multi-Agent)
 
-#### Sessions
+Sessions are scanned from three agents in parallel at startup. Each agent has its own package:
 
-All session data comes from `~/.claude/`:
+**Claude Code** (`~/.claude/`, package `internal/claude/`):
+- `projects/{path}/{sessionId}.jsonl` — JSONL, one line per event. Types: `user`, `assistant`, `system`, `file-history-snapshot`.
+- `history.jsonl` — global prompt log. Used for `/rename` detection. Tracer also writes renames here.
+- `file-history/{sessionId}/`, `tasks/{sessionId}/` — cleaned up on session deletion.
 
-- **`projects/{path}/{sessionId}.jsonl`** — one file per session, contains full conversation as JSONL. Each line is an `Entry` with type `user`, `assistant`, `system`, or `file-history-snapshot`. The path component encodes the working directory (e.g., `-Users-or-projects-myapp`).
-- **`history.jsonl`** — global log of user prompts. Used to detect `/rename` commands that override the default session name.
-- **`file-history/{sessionId}/`**, **`tasks/{sessionId}/`** — cleaned up on session deletion.
+**Codex CLI** (`~/.codex/`, package `internal/codex/`):
+- `sessions/YYYY/MM/DD/rollout-{date}-{uuid}.jsonl` — JSONL with types: `session_meta`, `event_msg`, `response_item`, `turn_context`.
+- `session_index.jsonl` — maps session IDs to thread names (user-assigned names).
+- `session_meta` payload has `id`, `cwd`, `model_provider`. User messages are `response_item` with `role: "user"`.
+
+**Gemini CLI** (`~/.gemini/`, package `internal/gemini/`):
+- `tmp/{project}/chats/session-{date}{uuid}.json` — single JSON file per session with `sessionId`, `startTime`, `messages` array.
+- Messages have `type: "user"` or `type: "gemini"`, with `content` as either a string or array of `{"text": "..."}` blocks.
+- `projects.json` — maps short project names to filesystem paths.
+- No resume support — sessions are view-only.
+
+All agents produce `[]model.Session` with the shared `Agent` field set to `AgentClaude`, `AgentCodex`, or `AgentGemini`.
 
 #### Skills
 
@@ -108,10 +124,10 @@ YAML frontmatter is parsed with simple string matching (no YAML library). If no 
 
 ### Session Scanning (Performance)
 
-Startup uses a two-phase approach for speed:
+Startup uses a two-phase approach for speed across all agents:
 
-1. **Fast scan** (`scanSessionHead`) — reads only until the first real user message. Skips meta messages (`isMeta: true`), XML-tagged system messages (`<local-command-caveat>`, `<command-message>`), and slash commands. Runs in parallel across 16 goroutines.
-2. **Lazy detail loading** (`LoadSessionDetails`) — reads the full JSONL file only when the user opens the detail view. Populates token counts, message stats, and model ID.
+1. **Fast scan** (`scanSessionHead` per agent) — reads only until the first real user message. For Claude, skips meta messages, XML-tagged system messages, and slash commands. For Codex, skips system/developer role messages. Non-message JSONL lines are skipped cheaply with a byte-level `isMessageLine` check before JSON parsing. All agents scan in parallel across 16 goroutines.
+2. **Lazy detail loading** (`LoadSessionDetail` per agent) — reads the full session file only when the user opens the detail view. Populates token counts, message stats, and model ID. Claude uses a single-pass reader for both metadata and messages.
 
 ### Session Name Resolution
 

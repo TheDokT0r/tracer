@@ -35,7 +35,7 @@ All agents are scanned in parallel at startup. Enable or disable each in setting
 ## Quick Start
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/TheDokT0r/tracer/master/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/orkwitzel/tracer/master/install.sh | sh
 ```
 
 Then just run `tracer`.
@@ -45,16 +45,16 @@ Then just run `tracer`.
 
 **Go install**
 ```bash
-go install github.com/TheDokT0r/tracer@latest
+go install github.com/orkwitzel/tracer@latest
 ```
 
 **From source**
 ```bash
-git clone https://github.com/TheDokT0r/tracer.git
+git clone https://github.com/orkwitzel/tracer.git
 cd tracer && go build -o tracer .
 ```
 
-**Manual download** — grab the latest `.tar.gz` from [Releases](https://github.com/TheDokT0r/tracer/releases).
+**Manual download** — grab the latest `.tar.gz` from [Releases](https://github.com/orkwitzel/tracer/releases).
 
 </details>
 

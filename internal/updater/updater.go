@@ -15,7 +15,7 @@ import (
 	"strings"
 )
 
-const repoURL = "https://api.github.com/repos/TheDokT0r/tracer/releases/latest"
+const repoURL = "https://api.github.com/repos/orkwitzel/tracer/releases/latest"
 
 type release struct {
 	TagName string  `json:"tag_name"`

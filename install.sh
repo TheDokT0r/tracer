@@ -3,7 +3,7 @@ set -e
 
 OS=$(uname -s | tr '[:upper:]' '[:lower:]')
 ARCH=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
-URL="https://github.com/TheDokT0r/tracer/releases/latest/download/tracer-${OS}-${ARCH}.tar.gz"
+URL="https://github.com/orkwitzel/tracer/releases/latest/download/tracer-${OS}-${ARCH}.tar.gz"
 
 INSTALL_DIR="$HOME/.local/bin"
 MAN_DIR="$HOME/.local/share/man/man1"
